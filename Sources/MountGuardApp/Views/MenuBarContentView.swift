@@ -3,8 +3,13 @@ import MountGuardKit
 import SwiftUI
 
 struct MenuBarContentView: View {
+    @AppStorage("app.language") private var appLanguageCode = AppLanguage.english.rawValue
     @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: DiskDashboardModel
+
+    private var appLanguage: AppLanguage {
+        AppLanguage(rawValue: appLanguageCode) ?? .english
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -12,14 +17,14 @@ struct MenuBarContentView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("MountGuard")
                         .font(.headline)
-                    Text(AppText.current("已发现 \(model.volumes.count) 个外接卷", "\(model.volumes.count) external volumes"))
+                    Text(AppText.current("已发现 \(model.volumes.count) 个外接卷", "\(model.volumes.count) external volumes", language: appLanguage))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button {
                     Task {
-                        await model.refresh(reason: AppText.current("菜单栏刷新", "Menu refresh"))
+                        await model.refresh(reason: AppText.current("菜单栏刷新", "Menu refresh", language: appLanguage))
                     }
                 } label: {
                     Image(systemName: "arrow.clockwise")
@@ -32,9 +37,9 @@ struct MenuBarContentView: View {
                     Image(systemName: "externaldrive.badge.questionmark")
                         .font(.system(size: 28))
                         .foregroundStyle(.secondary)
-                    Text(AppText.current("未发现磁盘", "No Disk"))
+                    Text(AppText.current("未发现磁盘", "No Disk", language: appLanguage))
                         .font(.headline)
-                    Text(AppText.current("插入磁盘后会自动刷新。", "Insert a disk to refresh automatically."))
+                    Text(AppText.current("插入磁盘后会自动刷新。", "Insert a disk to refresh automatically.", language: appLanguage))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -51,18 +56,18 @@ struct MenuBarContentView: View {
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Text(volume.isWritable ? AppText.current("可写", "Writable") : AppText.current("只读", "Read Only"))
+                            Text(volume.isWritable ? AppText.current("可写", "Writable", language: appLanguage) : AppText.current("只读", "Read Only", language: appLanguage))
                                 .font(.caption)
                                 .foregroundStyle(volume.isWritable ? .green : .orange)
                         }
 
                         HStack {
-                            Button(AppText.current("打开", "Open")) {
+                            Button(AppText.current("打开", "Open", language: appLanguage)) {
                                 model.open(volume)
                             }
                             .disabled(volume.mountPoint == nil)
 
-                            Button(AppText.current("安全移除", "Safe Eject"), role: .destructive) {
+                            Button(AppText.current("安全移除", "Safe Eject", language: appLanguage), role: .destructive) {
                                 Task {
                                     await model.eject(volume)
                                 }
@@ -79,12 +84,14 @@ struct MenuBarContentView: View {
             Divider()
 
             HStack {
-                Button(AppText.current("主窗口", "Main Window")) {
+                Button(AppText.current("主窗口", "Main Window", language: appLanguage)) {
                     openWindow(id: "main")
                     model.revealMainWindow()
                 }
                 Spacer()
-                Button(AppText.current("退出", "Quit")) {
+                Link("GitHub", destination: URL(string: "https://github.com/BillLucky/MountGuard-for-Mac")!)
+                    .font(.caption)
+                Button(AppText.current("退出", "Quit", language: appLanguage)) {
                     NSApplication.shared.terminate(nil)
                 }
             }

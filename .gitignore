@@ -3,6 +3,8 @@
 /Packages
 xcuserdata/
 DerivedData/
+/dist
+.build/mountguard-release/
 .env
 .env.*
 .envrc
@@ -19,3 +21,5 @@ Secrets/
 .swiftpm/configuration/registries.json
 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
 .netrc
+
+project-goal.mdx

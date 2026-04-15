@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="620" viewBox="0 0 760 620">
+  <rect width="760" height="620" fill="#111827"/>
+  <rect x="190" y="60" width="380" height="500" rx="24" fill="#f9fafb"/>
+  <rect x="190" y="60" width="380" height="64" rx="24" fill="#e5e7eb"/>
+  <text x="220" y="101" fill="#111827" font-size="28" font-family="Helvetica, Arial, sans-serif">MountGuard</text>
+  <text x="220" y="155" fill="#111827" font-size="24" font-family="Helvetica, Arial, sans-serif">Backup</text>
+  <text x="220" y="186" fill="#6b7280" font-size="18" font-family="Helvetica, Arial, sans-serif">/Volumes/Backup</text>
+  <rect x="220" y="210" width="92" height="36" rx="12" fill="#dbeafe"/>
+  <text x="238" y="234" fill="#1d4ed8" font-size="18" font-family="Helvetica, Arial, sans-serif">Open</text>
+  <rect x="326" y="210" width="132" height="36" rx="12" fill="#fee2e2"/>
+  <text x="344" y="234" fill="#b91c1c" font-size="18" font-family="Helvetica, Arial, sans-serif">Safe Eject</text>
+  <line x1="220" y1="280" x2="540" y2="280" stroke="#d1d5db" stroke-width="2"/>
+  <text x="220" y="330" fill="#111827" font-size="20" font-family="Helvetica, Arial, sans-serif">Main Window</text>
+  <text x="220" y="370" fill="#111827" font-size="20" font-family="Helvetica, Arial, sans-serif">GitHub</text>
+  <text x="220" y="410" fill="#111827" font-size="20" font-family="Helvetica, Arial, sans-serif">Quit</text>
+  <text x="220" y="484" fill="#6b7280" font-size="18" font-family="Helvetica, Arial, sans-serif">Menu bar access for quick inspection and eject.</text>
+</svg>

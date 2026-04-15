@@ -1,85 +1,142 @@
 # MountGuard
 
-MountGuard is a native macOS utility for safe external disk discovery, inspection, self-test, and ejection.
+[中文说明](./README.zh-CN.md) | [Testing Guide](./docs/TESTING.md) | [Release Guide](./docs/OPEN_SOURCE_RELEASE.md)
 
-MountGuard 是一个面向 macOS 的原生外接磁盘管理工具，强调安全发现、状态可视化、受控自测与稳妥移除。
+MountGuard helps Mac users work with external disks more calmly.
 
-## Highlights
+It shows what is mounted, what is blocking an eject, what is safe to do next, and how to test the disk path without touching user files outside a MountGuard-owned workspace.
 
-- Native macOS stack: `SwiftUI + AppKit + DiskArbitration + diskutil`
-- Read-only inventory by default; no hidden remount, no silent repair
-- Menu bar app + CLI with shared system boundary
-- Busy-process scan before ejection
-- Self-test only touches a MountGuard-owned hidden workspace
-- Bilingual foundation for GUI and docs: Chinese + English
+## Why It Exists
 
-## Current Scope
+Plugging in an external disk should feel boring and safe.
 
-- Discover external volumes
-- Show mount point, filesystem, bus, SMART, space usage
-- Open mounted volumes in Finder
-- Scan blocking processes with `lsof`
-- Run safer eject flow: `sync -> unmount -> eject`
-- Run disk self-test on a MountGuard-owned workspace
-- Provide CLI commands for `list`, `ps`, `selftest`, `eject`
+In reality, it often feels like this:
 
-## Safety Boundaries
+- the disk mounts but you are not sure whether it is writable
+- you copy files for a long time and do not know what is safe to retry
+- macOS says the disk is busy but does not tell you who is holding it
+- you want a quick confidence check without risking your own folders
 
-- MountGuard never formats a disk automatically.
-- MountGuard never runs `fsck` automatically.
-- MountGuard never kills user or system processes automatically.
-- Any state-changing action must be triggered explicitly by the user.
-- The current debug disk `/Volumes/Backup` is detected as `NTFS` and `read-only`, so write self-tests are skipped by design.
+MountGuard starts by solving those problems well. Then it grows into higher-level workflows like verified sync and resumable backup.
 
-## Local Run
+## What You Can Do Today
 
-### GUI
+- See external volumes in a native macOS window and menu bar
+- Open the mounted disk in Finder
+- Inspect filesystem, bus, SMART status, free space, and mount mode
+- Scan for blocking processes before ejecting
+- Run a safer eject flow: `sync -> unmount -> eject`
+- Run a disk self-test that only touches `.mountguard-selftest`
+- Switch the GUI between English and Chinese
+
+## Quick Start
+
+### 1. Launch the app
 
 ```bash
 ./scripts/run-local-app.sh
 ```
 
-### CLI
+### 2. Inspect disks from CLI
 
 ```bash
 swift run --disable-sandbox mountguardctl list
+```
+
+### 3. See what is blocking a disk
+
+```bash
 swift run --disable-sandbox mountguardctl ps disk4s2
+```
+
+### 4. Run the safe self-test
+
+```bash
 swift run --disable-sandbox mountguardctl selftest disk4s2
+```
+
+### 5. Eject only when you really mean it
+
+```bash
 swift run --disable-sandbox mountguardctl eject disk4s2
 ```
 
-Note: `eject` performs a real safe-eject workflow. Only run it when the disk can be removed.
+## Screenshots
 
-注意：`eject` 会真实触发安全移除流程，请仅在你确认可以拔盘时执行。
+### Main Window
 
-## Real-World Validation
+![MountGuard main window](./assets/screenshots/main-window.svg)
+
+### Menu Bar Panel
+
+![MountGuard menu bar panel](./assets/screenshots/menu-bar.svg)
+
+### Self-Test Workflow
+
+![MountGuard self-test workflow](./assets/screenshots/self-test.svg)
+
+## A Friendly Mental Model
+
+- `Open`: jump into the disk in Finder
+- `Scan Usage`: ask who is still holding the disk
+- `Run Self-Test`: verify the I/O path using MountGuard's own hidden workspace
+- `Safe Eject`: flush, unmount, and eject in a safer order
+
+If a volume is read-only, MountGuard respects that and skips write self-tests instead of pretending everything is fine.
+
+## Real Usage Stories
+
+### “I just want to unplug safely.”
+
+Open MountGuard, pick the disk, run `Scan Usage`, and then `Safe Eject`.
+
+### “I am not sure whether the disk path is healthy.”
+
+Run the self-test. It creates files only inside `.mountguard-selftest`, validates read/write behavior, and cleans up after itself.
+
+### “I mainly live in Terminal.”
+
+Use:
+
+```bash
+swift run --disable-sandbox mountguardctl list
+swift run --disable-sandbox mountguardctl ps <diskIdentifier>
+swift run --disable-sandbox mountguardctl selftest <diskIdentifier>
+swift run --disable-sandbox mountguardctl eject <diskIdentifier>
+```
+
+## Safety Promises
+
+- No automatic formatting
+- No automatic `fsck`
+- No silent process killing
+- No hidden remount tricks
+- No write self-test on read-only volumes
+- No writes outside MountGuard-owned test workspace
+
+## Current Validation
 
 - `swift test --disable-sandbox` passes
-- CLI correctly detects `/Volumes/Backup`
-- Self-test on a writable temporary directory passes in automated tests
-- Self-test on the mounted NTFS read-only disk is expected to skip write cases instead of forcing risky writes
+- The current debug disk `/Volumes/Backup` is correctly identified as `NTFS` and `read-only`
+- Real self-test on that disk is intentionally skipped instead of forcing unsafe writes
+- Busy-process scan has been switched to a filesystem-level strategy so large disks stay responsive
 
-## Repository Guide
+## Looking Ahead
 
-- `Sources/MountGuardKit`: system-facing services and domain models
-- `Sources/MountGuardApp`: desktop GUI and menu bar experience
-- `Sources/mountguardctl`: CLI entrypoint
-- `Tests/MountGuardKitTests`: parser and self-test regression coverage
-- `docs/TESTING.md`: testing policy and real disk validation rules
-- `docs/OPEN_SOURCE_RELEASE.md`: public release and GitHub workflow
-- `docs/PRIVACY.md`: privacy and secret-handling contract
+MountGuard is not meant to stop at “a better eject button”.
 
-## Open Source Rules
+Planned higher-level capabilities include:
 
-- Do not commit secrets, tokens, certificates, or `.env` files.
-- Keep all risky disk operations explicit and reviewable.
-- Document architecture changes in `CLAUDE.md`.
-- Prefer reproducible local verification before publishing.
+- resumable copy and retry
+- verified incremental sync
+- checksum-aware backup workflows
+- copy health reporting for large transfers
 
-## Roadmap
+See [Advanced Capabilities](./docs/ADVANCED_CAPABILITIES.md) for the product direction.
 
-- Rule engine based on disk UUID
-- Visual process release workflow before eject
-- Exportable operation logs
-- Config import/export
-- DMG packaging and signed distribution
+## For Contributors
+
+- Start here: [CONTRIBUTING.md](./CONTRIBUTING.md)
+- Review safety boundaries: [SECURITY.md](./SECURITY.md)
+- Understand privacy posture: [PRIVACY.md](./docs/PRIVACY.md)
+- Release cleanly: [OPEN_SOURCE_RELEASE.md](./docs/OPEN_SOURCE_RELEASE.md)

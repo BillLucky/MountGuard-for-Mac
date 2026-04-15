@@ -2,7 +2,12 @@ import MountGuardKit
 import SwiftUI
 
 struct ContentView: View {
+    @AppStorage("app.language") private var appLanguageCode = AppLanguage.english.rawValue
     @ObservedObject var model: DiskDashboardModel
+
+    private var appLanguage: AppLanguage {
+        AppLanguage(rawValue: appLanguageCode) ?? .english
+    }
 
     var body: some View {
         NavigationSplitView {
@@ -10,15 +15,15 @@ struct ContentView: View {
                 DiskRowView(volume: volume)
                     .tag(volume.id)
             }
-            .navigationTitle(AppText.current("磁盘列表", "Disks"))
+            .navigationTitle(AppText.current("磁盘列表", "Disks", language: appLanguage))
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         Task {
-                            await model.refresh(reason: AppText.current("手动刷新", "Manual refresh"))
+                            await model.refresh(reason: AppText.current("手动刷新", "Manual refresh", language: appLanguage))
                         }
                     } label: {
-                        Label(AppText.current("刷新", "Refresh"), systemImage: "arrow.clockwise")
+                        Label(AppText.current("刷新", "Refresh", language: appLanguage), systemImage: "arrow.clockwise")
                     }
                 }
             }
@@ -27,21 +32,24 @@ struct ContentView: View {
                 DiskDetailView(model: model, volume: volume)
             } else {
                 EmptyStateView(
-                    title: AppText.current("未发现外接磁盘", "No External Disk"),
+                    title: AppText.current("未发现外接磁盘", "No External Disk", language: appLanguage),
                     systemImage: "externaldrive.badge.questionmark",
-                    message: AppText.current("插入移动硬盘或点击刷新重新扫描。", "Insert a removable disk or refresh to scan again.")
+                    message: AppText.current("插入移动硬盘或点击刷新重新扫描。", "Insert a removable disk or refresh to scan again.", language: appLanguage)
                 )
             }
         }
+        .safeAreaInset(edge: .bottom) {
+            FooterBar(appLanguageCode: $appLanguageCode)
+        }
         .overlay {
             if model.isLoading {
-                ProgressView(AppText.current("正在同步磁盘状态...", "Syncing disk status..."))
+                ProgressView(AppText.current("正在同步磁盘状态...", "Syncing disk status...", language: appLanguage))
                     .padding(16)
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
             }
         }
         .alert(
-            AppText.current("操作失败", "Operation Failed"),
+            AppText.current("操作失败", "Operation Failed", language: appLanguage),
             isPresented: Binding(
                 get: { model.lastErrorMessage != nil },
                 set: { isPresented in
@@ -51,7 +59,7 @@ struct ContentView: View {
                 }
             )
         ) {
-            Button(AppText.current("知道了", "OK"), role: .cancel) {}
+            Button(AppText.current("知道了", "OK", language: appLanguage), role: .cancel) {}
         } message: {
             Text(model.lastErrorMessage ?? "")
         }
@@ -81,20 +89,26 @@ private struct DiskDetailView: View {
     @ObservedObject var model: DiskDashboardModel
     let volume: DiskVolume
 
+    @AppStorage("app.language") private var appLanguageCode = AppLanguage.english.rawValue
+
+    private var appLanguage: AppLanguage {
+        AppLanguage(rawValue: appLanguageCode) ?? .english
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
-                GroupBox(AppText.current("核心信息", "Overview")) {
+                GroupBox(AppText.current("核心信息", "Overview", language: appLanguage)) {
                     detailGrid
                 }
-                GroupBox(AppText.current("占用进程", "Open Processes")) {
+                GroupBox(AppText.current("占用进程", "Open Processes", language: appLanguage)) {
                     usageView
                 }
-                GroupBox(AppText.current("磁盘自测", "Disk Self-Test")) {
+                GroupBox(AppText.current("磁盘自测", "Disk Self-Test", language: appLanguage)) {
                     ioTestView
                 }
-                GroupBox(AppText.current("最近日志", "Recent Logs")) {
+                GroupBox(AppText.current("最近日志", "Recent Logs", language: appLanguage)) {
                     logsView
                 }
             }
@@ -118,7 +132,7 @@ private struct DiskDetailView: View {
                 Button {
                     model.open(volume)
                 } label: {
-                    Label(AppText.current("打开磁盘", "Open"), systemImage: "folder")
+                    Label(AppText.current("打开磁盘", "Open", language: appLanguage), systemImage: "folder")
                 }
                 .disabled(volume.mountPoint == nil)
 
@@ -127,7 +141,7 @@ private struct DiskDetailView: View {
                         await model.inspectUsage(of: volume)
                     }
                 } label: {
-                    Label(AppText.current("扫描占用", "Scan Usage"), systemImage: "magnifyingglass")
+                    Label(AppText.current("扫描占用", "Scan Usage", language: appLanguage), systemImage: "magnifyingglass")
                 }
                 .disabled(volume.mountPoint == nil)
 
@@ -136,7 +150,7 @@ private struct DiskDetailView: View {
                         await model.eject(volume)
                     }
                 } label: {
-                    Label(AppText.current("安全移除", "Safe Eject"), systemImage: "eject")
+                    Label(AppText.current("安全移除", "Safe Eject", language: appLanguage), systemImage: "eject")
                 }
                 .disabled(!volume.isEjectable)
             }
@@ -154,24 +168,24 @@ private struct DiskDetailView: View {
     private var detailGrid: some View {
         Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 12) {
             GridRow {
-                DetailCell(title: "设备", value: volume.deviceNode)
-                DetailCell(title: AppText.current("整盘", "Whole Disk"), value: volume.wholeDiskIdentifier)
+                DetailCell(title: AppText.current("设备", "Device", language: appLanguage), value: volume.deviceNode)
+                DetailCell(title: AppText.current("整盘", "Whole Disk", language: appLanguage), value: volume.wholeDiskIdentifier)
             }
             GridRow {
-                DetailCell(title: AppText.current("文件系统", "File System"), value: volume.fileSystemName)
-                DetailCell(title: AppText.current("总容量", "Capacity"), value: DiskFormatters.bytes(volume.totalBytes))
+                DetailCell(title: AppText.current("文件系统", "File System", language: appLanguage), value: volume.fileSystemName)
+                DetailCell(title: AppText.current("总容量", "Capacity", language: appLanguage), value: DiskFormatters.bytes(volume.totalBytes))
             }
             GridRow {
-                DetailCell(title: AppText.current("总线协议", "Bus"), value: volume.busProtocol)
-                DetailCell(title: AppText.current("空闲空间", "Free Space"), value: DiskFormatters.bytes(volume.freeBytes))
+                DetailCell(title: AppText.current("总线协议", "Bus", language: appLanguage), value: volume.busProtocol)
+                DetailCell(title: AppText.current("空闲空间", "Free Space", language: appLanguage), value: DiskFormatters.bytes(volume.freeBytes))
             }
             GridRow {
-                DetailCell(title: AppText.current("写入状态", "Write Mode"), value: volume.isWritable ? AppText.current("可写", "Writable") : AppText.current("只读", "Read Only"))
+                DetailCell(title: AppText.current("写入状态", "Write Mode", language: appLanguage), value: volume.isWritable ? AppText.current("可写", "Writable", language: appLanguage) : AppText.current("只读", "Read Only", language: appLanguage))
                 DetailCell(title: "SMART", value: volume.smartStatus)
             }
             GridRow {
-                DetailCell(title: AppText.current("卷 UUID", "Volume UUID"), value: volume.diskUUID ?? "-")
-                DetailCell(title: AppText.current("内容类型", "Content"), value: volume.contentDescription)
+                DetailCell(title: AppText.current("卷 UUID", "Volume UUID", language: appLanguage), value: volume.diskUUID ?? "-")
+                DetailCell(title: AppText.current("内容类型", "Content", language: appLanguage), value: volume.contentDescription)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -183,14 +197,14 @@ private struct DiskDetailView: View {
 
         return VStack(alignment: .leading, spacing: 10) {
             if usages.isEmpty {
-                Text(AppText.current("当前未检测到占用进程。", "No blocking process is detected."))
+                Text(AppText.current("当前未检测到占用进程。", "No blocking process is detected.", language: appLanguage))
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(usages) { usage in
                     VStack(alignment: .leading, spacing: 4) {
                         Text(usage.summary)
                             .font(.headline)
-                        Text("\(AppText.current("用户", "User")): \(usage.user)")
+                        Text("\(AppText.current("用户", "User", language: appLanguage)): \(usage.user)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         ForEach(usage.filePaths.prefix(3), id: \.self) { path in
@@ -219,7 +233,7 @@ private struct DiskDetailView: View {
                         await model.runIOTest(on: volume)
                     }
                 } label: {
-                    Label(AppText.current("运行自测", "Run Self-Test"), systemImage: "checkmark.shield")
+                    Label(AppText.current("运行自测", "Run Self-Test", language: appLanguage), systemImage: "checkmark.shield")
                 }
                 .disabled(volume.mountPoint == nil)
 
@@ -245,7 +259,7 @@ private struct DiskDetailView: View {
                     }
                 }
             } else {
-                Text(AppText.current("自测会只操作 MountGuard 自己创建的隐藏目录，并在结束后清理。", "Self-test only touches a MountGuard-owned hidden folder and cleans it afterwards."))
+                Text(AppText.current("自测会只操作 MountGuard 自己创建的隐藏目录，并在结束后清理。", "Self-test only touches a MountGuard-owned hidden folder and cleans it afterwards.", language: appLanguage))
                     .foregroundStyle(.secondary)
             }
         }
@@ -256,7 +270,7 @@ private struct DiskDetailView: View {
     private var logsView: some View {
         VStack(alignment: .leading, spacing: 10) {
             if model.logs.isEmpty {
-                Text(AppText.current("暂无日志", "No logs yet"))
+                Text(AppText.current("暂无日志", "No logs yet", language: appLanguage))
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(model.logs.prefix(12)) { entry in
@@ -292,11 +306,11 @@ private struct DiskDetailView: View {
     private func statusText(for status: DiskIOTestStatus) -> String {
         switch status {
         case .passed:
-            return AppText.current("通过", "Passed")
+            return AppText.current("通过", "Passed", language: appLanguage)
         case .skipped:
-            return AppText.current("已跳过", "Skipped")
+            return AppText.current("已跳过", "Skipped", language: appLanguage)
         case .failed:
-            return AppText.current("失败", "Failed")
+            return AppText.current("失败", "Failed", language: appLanguage)
         }
     }
 
@@ -320,6 +334,42 @@ private struct DiskDetailView: View {
         case .failed:
             return "exclamationmark.triangle"
         }
+    }
+}
+
+private struct FooterBar: View {
+    @Binding var appLanguageCode: String
+
+    private var appLanguage: AppLanguage {
+        AppLanguage(rawValue: appLanguageCode) ?? .english
+    }
+
+    var body: some View {
+        HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(AppText.current("BillLucky 用爱创作，为了让拔盘这件小事更安心。", "Made with love by BillLucky so removable disks feel a little less scary.", language: appLanguage))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Link("github.com/BillLucky/MountGuard-for-Mac", destination: URL(string: "https://github.com/BillLucky/MountGuard-for-Mac")!)
+                    .font(.caption)
+            }
+            Spacer()
+            Picker(AppText.current("语言", "Language", language: appLanguage), selection: $appLanguageCode) {
+                ForEach(AppLanguage.allCases) { language in
+                    Text(language.label).tag(language.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 180)
+            .onChange(of: appLanguageCode) { newValue in
+                if let language = AppLanguage(rawValue: newValue) {
+                    AppText.setLanguage(language)
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        .background(.bar)
     }
 }
 

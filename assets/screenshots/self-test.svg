@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="520" viewBox="0 0 1180 520">
+  <rect width="1180" height="520" fill="#0f172a"/>
+  <rect x="40" y="80" width="260" height="220" rx="24" fill="#1d4ed8"/>
+  <rect x="460" y="80" width="260" height="220" rx="24" fill="#1f2937"/>
+  <rect x="880" y="80" width="260" height="220" rx="24" fill="#166534"/>
+  <text x="76" y="150" fill="#ffffff" font-size="30" font-family="Helvetica, Arial, sans-serif">1. Create Workspace</text>
+  <text x="76" y="196" fill="#dbeafe" font-size="22" font-family="Helvetica, Arial, sans-serif">.mountguard-selftest</text>
+  <text x="496" y="150" fill="#ffffff" font-size="30" font-family="Helvetica, Arial, sans-serif">2. Verify I/O</text>
+  <text x="496" y="196" fill="#d1d5db" font-size="22" font-family="Helvetica, Arial, sans-serif">write, read, copy, rename, binary</text>
+  <text x="916" y="150" fill="#ffffff" font-size="30" font-family="Helvetica, Arial, sans-serif">3. Clean Up</text>
+  <text x="916" y="196" fill="#dcfce7" font-size="22" font-family="Helvetica, Arial, sans-serif">leave the user's files untouched</text>
+  <line x1="300" y1="190" x2="460" y2="190" stroke="#60a5fa" stroke-width="6"/>
+  <polygon points="460,190 432,174 432,206" fill="#60a5fa"/>
+  <line x1="720" y1="190" x2="880" y2="190" stroke="#4ade80" stroke-width="6"/>
+  <polygon points="880,190 852,174 852,206" fill="#4ade80"/>
+  <text x="40" y="404" fill="#e5e7eb" font-size="26" font-family="Helvetica, Arial, sans-serif">Safe by design: no writes outside MountGuard's own hidden test folder.</text>
+</svg>
