@@ -2,22 +2,31 @@
 
 [中文说明](./README.zh-CN.md) | [Testing Guide](./docs/TESTING.md) | [Release Guide](./docs/OPEN_SOURCE_RELEASE.md)
 
-MountGuard makes external disks feel simpler, safer, and less annoying on macOS.
+MountGuard is a native macOS disk manager focused on one thing first: stable mounting and reliable two-way file transfer.
 
-## What Problem It Solves
+## Core Promise
 
-- You are not sure whether a disk is mounted, writable, or safe to eject.
-- macOS says the disk is busy, but does not tell you what is holding it.
-- You want a quick health check without risking your real files.
-- You just want a small native tool that helps you get back to work.
+- Plug in a disk and get it into a usable state quickly.
+- See whether it is mounted, writable, and ready for large file copy.
+- Mount or unmount directly from the GUI and menu bar.
+- Keep the workflow stable when multiple external disks are connected.
+- Fall back to safer system behavior instead of guessing.
 
-## What Value You Get
+## Why People Use It
 
-- See your external disks clearly in one place
-- Find blocking processes before unplugging
-- Eject in a safer order: `sync -> unmount -> eject`
-- Run a self-test that only touches `.mountguard-selftest`
-- Use the app in English or Chinese
+- Faster disk setup for real work
+- Clear mount state and write capability
+- Safer eject path after copying data
+- Better visibility when something is still blocking the disk
+- English / Chinese GUI for day-to-day use
+
+## Mounting Experience
+
+- New disks can be auto-mounted when they appear
+- Unmounted disks can be mounted manually from the main window or menu bar
+- Mounted disks can be unmounted without leaving the app
+- NTFS volumes clearly show whether they are system read-only or eligible for enhanced RW remount
+- exFAT, APFS, and HFS+ stay on the default macOS path for stability and throughput
 
 ## Start Here
 
@@ -67,6 +76,7 @@ swift run --disable-sandbox mountguardctl eject disk4s2
 
 ## How To Think About It
 
+- `Mount`: make an unmounted disk ready to use
 - `Open`: jump into the disk in Finder
 - `Scan Usage`: ask who is still holding the disk
 - `Run Self-Test`: verify the I/O path using MountGuard's own hidden workspace
@@ -75,6 +85,10 @@ swift run --disable-sandbox mountguardctl eject disk4s2
 If a volume is read-only, MountGuard respects that and skips write self-tests instead of pretending everything is fine.
 
 ## Real Usage Stories
+
+### “I just plugged in a disk and want to start copying.”
+
+Open MountGuard, confirm the disk is mounted and writable, then open it in Finder and start copying in either direction.
 
 ### “I just want to unplug safely.”
 
@@ -108,6 +122,8 @@ swift run --disable-sandbox mountguardctl eject <diskIdentifier>
 
 - `swift test --disable-sandbox` passes
 - The current debug disk `/Volumes/Backup` is correctly identified as `NTFS` and `read-only`
+- Default mount / unmount flow works locally through `diskutil`
+- Local machine has `ntfs-3g` and macFUSE available for optional enhanced NTFS RW path
 - Real self-test on that disk is intentionally skipped instead of forcing unsafe writes
 - Busy-process scan has been switched to a filesystem-level strategy so large disks stay responsive
 

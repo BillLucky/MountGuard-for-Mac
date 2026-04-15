@@ -54,6 +54,7 @@ final class DiskDashboardModel: ObservableObject {
     private let monitor: DiskArbitrationMonitor?
     private let logger = Logger(subsystem: "com.mountguard.local", category: "dashboard")
     private var hasStarted = false
+    private var knownVolumeIDs: Set<String> = []
 
     init(
         inventoryService: DiskInventoryService = DiskInventoryService(),
@@ -67,7 +68,7 @@ final class DiskDashboardModel: ObservableObject {
         self.monitor = monitor
         self.monitor?.onChange = { [weak self] in
             Task {
-                await self?.refresh(reason: "检测到磁盘变化", logSuccess: true)
+                await self?.refresh(reason: "检测到磁盘变化", logSuccess: true, attemptAutoMount: true)
             }
         }
     }
@@ -77,11 +78,19 @@ final class DiskDashboardModel: ObservableObject {
         hasStarted = true
 
         Task {
-            await refresh(reason: "应用启动", logSuccess: false)
+            await refresh(reason: "应用启动", logSuccess: false, attemptAutoMount: true)
         }
     }
 
-    func refresh(reason: String, logSuccess: Bool = true) async {
+    func supportsEnhancedReadWrite(for volume: DiskVolume) -> Bool {
+        commandService.supportsEnhancedReadWrite(for: volume)
+    }
+
+    func accessStrategyDescription(for volume: DiskVolume) -> String {
+        commandService.accessStrategyDescription(for: volume)
+    }
+
+    func refresh(reason: String, logSuccess: Bool = true, attemptAutoMount: Bool = false) async {
         isLoading = true
         defer { isLoading = false }
 
@@ -92,10 +101,22 @@ final class DiskDashboardModel: ObservableObject {
             }.value
 
             volumes = fetchedVolumes
+            let previousIDs = knownVolumeIDs
+            knownVolumeIDs = Set(fetchedVolumes.map(\.id))
             if let selectedVolumeID, fetchedVolumes.contains(where: { $0.id == selectedVolumeID }) {
                 self.selectedVolumeID = selectedVolumeID
             } else {
                 self.selectedVolumeID = fetchedVolumes.first?.id
+            }
+
+            if attemptAutoMount && autoMountNewDisksEnabled {
+                let newUnmountedVolumes = fetchedVolumes.filter { volume in
+                    !volume.isMounted && !previousIDs.contains(volume.id)
+                }
+
+                for volume in newUnmountedVolumes {
+                    await mountDefault(volume, isAutomatic: true)
+                }
             }
 
             if logSuccess {
@@ -104,6 +125,53 @@ final class DiskDashboardModel: ObservableObject {
         } catch {
             lastErrorMessage = error.localizedDescription
             appendLog(.error, "\(reason)：\(error.localizedDescription)")
+        }
+    }
+
+    func mountDefault(_ volume: DiskVolume, isAutomatic: Bool = false) async {
+        do {
+            let commandService = self.commandService
+            try await Task.detached(priority: .userInitiated) {
+                try commandService.mountDefault(volume)
+            }.value
+
+            let prefix = isAutomatic ? "自动挂载完成" : "手动挂载完成"
+            appendLog(.success, "\(prefix)：\(volume.displayName)")
+            await refresh(reason: prefix, logSuccess: false)
+        } catch {
+            lastErrorMessage = error.localizedDescription
+            let prefix = isAutomatic ? "自动挂载失败" : "挂载失败"
+            appendLog(.error, "\(prefix)：\(volume.displayName) - \(error.localizedDescription)")
+        }
+    }
+
+    func remountNTFSReadWrite(_ volume: DiskVolume) async {
+        do {
+            let commandService = self.commandService
+            try await Task.detached(priority: .userInitiated) {
+                try commandService.remountNTFSReadWrite(volume)
+            }.value
+
+            appendLog(.success, "增强读写挂载完成：\(volume.displayName)")
+            await refresh(reason: "增强读写挂载完成", logSuccess: false)
+        } catch {
+            lastErrorMessage = error.localizedDescription
+            appendLog(.error, "增强读写挂载失败：\(volume.displayName) - \(error.localizedDescription)")
+        }
+    }
+
+    func unmount(_ volume: DiskVolume) async {
+        do {
+            let commandService = self.commandService
+            try await Task.detached(priority: .userInitiated) {
+                try commandService.unmount(volume)
+            }.value
+
+            appendLog(.success, "已卸载 \(volume.displayName)")
+            await refresh(reason: "卸载完成", logSuccess: false)
+        } catch {
+            lastErrorMessage = error.localizedDescription
+            appendLog(.error, "卸载失败：\(volume.displayName) - \(error.localizedDescription)")
         }
     }
 
@@ -204,5 +272,12 @@ final class DiskDashboardModel: ObservableObject {
         case .error:
             logger.error("\(message, privacy: .public)")
         }
+    }
+
+    private var autoMountNewDisksEnabled: Bool {
+        if UserDefaults.standard.object(forKey: "settings.autoMountNewDisks") == nil {
+            return true
+        }
+        return UserDefaults.standard.bool(forKey: "settings.autoMountNewDisks")
     }
 }

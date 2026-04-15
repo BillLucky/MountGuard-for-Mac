@@ -8,6 +8,7 @@ struct MountGuardApp: App {
         WindowGroup(id: "main") {
             ContentView(model: model)
                 .task {
+                    AppIcon.apply()
                     model.startIfNeeded()
                 }
         }
@@ -16,6 +17,7 @@ struct MountGuardApp: App {
         MenuBarExtra {
             MenuBarContentView(model: model)
                 .task {
+                    AppIcon.apply()
                     model.startIfNeeded()
                 }
         } label: {

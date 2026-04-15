@@ -9,12 +9,15 @@ BUILD_ROOT="$ROOT_DIR/.build/mountguard-release"
 APP_ROOT="$BUILD_ROOT/MountGuard.app"
 APP_CONTENTS="$APP_ROOT/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
+APP_RESOURCES="$APP_CONTENTS/Resources"
 DIST_DIR="$ROOT_DIR/dist"
 DMG_PATH="$DIST_DIR/MountGuard-${VERSION}.dmg"
 STAGING_DIR="$BUILD_ROOT/dmg-root"
+ICONSET_DIR="$BUILD_ROOT/MountGuard.iconset"
+ICNS_PATH="$APP_RESOURCES/MountGuard.icns"
 
 rm -rf "$BUILD_ROOT" "$DMG_PATH"
-mkdir -p "$APP_MACOS" "$DIST_DIR" "$STAGING_DIR"
+mkdir -p "$APP_MACOS" "$APP_RESOURCES" "$DIST_DIR" "$STAGING_DIR"
 
 swift build -c release --product MountGuardApp --disable-sandbox
 
@@ -27,6 +30,9 @@ fi
 cp "$EXECUTABLE_PATH" "$APP_MACOS/MountGuardApp"
 chmod +x "$APP_MACOS/MountGuardApp"
 
+swift "$ROOT_DIR/scripts/generate-emoji-icon.swift" "$ICONSET_DIR" "🧲"
+iconutil -c icns "$ICONSET_DIR" -o "$ICNS_PATH"
+
 cat > "$APP_CONTENTS/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -38,6 +44,8 @@ cat > "$APP_CONTENTS/Info.plist" <<'PLIST'
     <string>MountGuardApp</string>
     <key>CFBundleIdentifier</key>
     <string>com.billlucky.mountguard</string>
+    <key>CFBundleIconFile</key>
+    <string>MountGuard</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>

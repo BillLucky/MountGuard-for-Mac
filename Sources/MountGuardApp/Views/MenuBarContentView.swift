@@ -62,10 +62,32 @@ struct MenuBarContentView: View {
                         }
 
                         HStack {
-                            Button(AppText.current("打开", "Open", language: appLanguage)) {
-                                model.open(volume)
+                            if volume.isMounted {
+                                Button(AppText.current("打开", "Open", language: appLanguage)) {
+                                    model.open(volume)
+                                }
+                                .disabled(volume.mountPoint == nil)
+
+                                Button(AppText.current("卸载", "Unmount", language: appLanguage)) {
+                                    Task {
+                                        await model.unmount(volume)
+                                    }
+                                }
+                            } else {
+                                Button(AppText.current("挂载", "Mount", language: appLanguage)) {
+                                    Task {
+                                        await model.mountDefault(volume)
+                                    }
+                                }
                             }
-                            .disabled(volume.mountPoint == nil)
+
+                            if volume.fileSystemType.lowercased() == "ntfs" && model.supportsEnhancedReadWrite(for: volume) {
+                                Button(AppText.current("读写挂载", "RW Mount", language: appLanguage)) {
+                                    Task {
+                                        await model.remountNTFSReadWrite(volume)
+                                    }
+                                }
+                            }
 
                             Button(AppText.current("安全移除", "Safe Eject", language: appLanguage), role: .destructive) {
                                 Task {

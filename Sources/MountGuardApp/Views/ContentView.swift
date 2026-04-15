@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ContentView: View {
     @AppStorage("app.language") private var appLanguageCode = AppLanguage.english.rawValue
+    @AppStorage("settings.autoMountNewDisks") private var autoMountNewDisks = true
     @ObservedObject var model: DiskDashboardModel
 
     private var appLanguage: AppLanguage {
@@ -70,16 +71,28 @@ private struct DiskRowView: View {
     let volume: DiskVolume
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(volume.displayName)
-                .font(.headline)
-            HStack(spacing: 10) {
-                Label(volume.fileSystemName, systemImage: "internaldrive")
-                Text(volume.isWritable ? AppText.current("可写", "Writable") : AppText.current("只读", "Read Only"))
-                Text(volume.isMounted ? AppText.current("已挂载", "Mounted") : AppText.current("未挂载", "Not Mounted"))
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(volume.displayName)
+                    .font(.headline)
+                HStack(spacing: 10) {
+                    Label(volume.fileSystemName, systemImage: "internaldrive")
+                    Text(volume.isWritable ? AppText.current("可写", "Writable") : AppText.current("只读", "Read Only"))
+                    Text(volume.isMounted ? AppText.current("已挂载", "Mounted") : AppText.current("未挂载", "Not Mounted"))
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+
+            Spacer()
+
+            if volume.isMounted {
+                Image(systemName: volume.isWritable ? "bolt.horizontal.circle.fill" : "lock.circle")
+                    .foregroundStyle(volume.isWritable ? .green : .orange)
+            } else {
+                Image(systemName: "arrow.down.circle")
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(.vertical, 4)
     }
@@ -99,6 +112,9 @@ private struct DiskDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
+                GroupBox(AppText.current("挂载控制", "Mount Controls", language: appLanguage)) {
+                    mountControlView
+                }
                 GroupBox(AppText.current("核心信息", "Overview", language: appLanguage)) {
                     detailGrid
                 }
@@ -124,8 +140,11 @@ private struct DiskDetailView: View {
                     Text(volume.displayName)
                         .font(.largeTitle)
                         .fontWeight(.semibold)
-                    Text(volume.mountPoint ?? "当前未挂载")
+                    Text(volume.mountPoint ?? AppText.current("当前未挂载", "Not mounted", language: appLanguage))
                         .font(.body)
+                        .foregroundStyle(.secondary)
+                    Text(model.accessStrategyDescription(for: volume))
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -145,6 +164,24 @@ private struct DiskDetailView: View {
                 }
                 .disabled(volume.mountPoint == nil)
 
+                if volume.isMounted {
+                    Button {
+                        Task {
+                            await model.unmount(volume)
+                        }
+                    } label: {
+                        Label(AppText.current("卸载", "Unmount", language: appLanguage), systemImage: "tray.and.arrow.down")
+                    }
+                } else {
+                    Button {
+                        Task {
+                            await model.mountDefault(volume)
+                        }
+                    } label: {
+                        Label(AppText.current("挂载", "Mount", language: appLanguage), systemImage: "tray.and.arrow.up")
+                    }
+                }
+
                 Button(role: .destructive) {
                     Task {
                         await model.eject(volume)
@@ -163,6 +200,71 @@ private struct DiskDetailView: View {
             }
             .tint(volume.isWritable ? .accentColor : .orange)
         }
+    }
+
+    private var mountControlView: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label(
+                    volume.isMounted
+                        ? AppText.current("当前已挂载", "Currently mounted", language: appLanguage)
+                        : AppText.current("当前未挂载", "Currently unmounted", language: appLanguage),
+                    systemImage: volume.isMounted ? "checkmark.circle" : "pause.circle"
+                )
+                .foregroundStyle(volume.isMounted ? .green : .secondary)
+
+                Spacer()
+
+                if volume.isMounted {
+                    Button {
+                        Task {
+                            await model.unmount(volume)
+                        }
+                    } label: {
+                        Label(AppText.current("卸载", "Unmount", language: appLanguage), systemImage: "eject")
+                    }
+                } else {
+                    Button {
+                        Task {
+                            await model.mountDefault(volume)
+                        }
+                    } label: {
+                        Label(AppText.current("系统挂载", "System Mount", language: appLanguage), systemImage: "externaldrive.badge.plus")
+                    }
+                }
+            }
+
+            if volume.fileSystemType.lowercased() == "ntfs" {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(AppText.current("NTFS 读写说明", "NTFS Read/Write", language: appLanguage))
+                        .font(.headline)
+                    Text(model.accessStrategyDescription(for: volume))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Button {
+                        Task {
+                            await model.remountNTFSReadWrite(volume)
+                        }
+                    } label: {
+                        Label(AppText.current("增强读写挂载", "Enhanced RW Mount", language: appLanguage), systemImage: "arrow.triangle.2.circlepath.circle")
+                    }
+                    .disabled(!model.supportsEnhancedReadWrite(for: volume))
+
+                    if !model.supportsEnhancedReadWrite(for: volume) {
+                        Text(AppText.current("当前机器缺少可用的 ntfs-3g / macFUSE 读写链路，仍可走系统只读挂载。", "This Mac does not currently have a usable ntfs-3g / macFUSE RW path, so MountGuard falls back to system read-only mount.", language: appLanguage))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } else {
+                Text(AppText.current("对 exFAT、APFS、HFS+ 等系统可写文件系统，MountGuard 优先使用系统默认挂载能力，保证稳定和传输效率。", "For exFAT, APFS, HFS+, and other system-writable filesystems, MountGuard prefers the default macOS mount path for stability and throughput.", language: appLanguage))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 8)
     }
 
     private var detailGrid: some View {
@@ -339,6 +441,7 @@ private struct DiskDetailView: View {
 
 private struct FooterBar: View {
     @Binding var appLanguageCode: String
+    @AppStorage("settings.autoMountNewDisks") private var autoMountNewDisks = true
 
     private var appLanguage: AppLanguage {
         AppLanguage(rawValue: appLanguageCode) ?? .english
@@ -354,6 +457,12 @@ private struct FooterBar: View {
                     .font(.caption)
             }
             Spacer()
+            Toggle(
+                AppText.current("自动挂载新盘", "Auto-mount new disks", language: appLanguage),
+                isOn: $autoMountNewDisks
+            )
+            .toggleStyle(.switch)
+            .font(.caption)
             Picker(AppText.current("语言", "Language", language: appLanguage), selection: $appLanguageCode) {
                 ForEach(AppLanguage.allCases) { language in
                     Text(language.label).tag(language.rawValue)
