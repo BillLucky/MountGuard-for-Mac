@@ -44,6 +44,7 @@ MountGuard/
 │   ├── RELEASE_NOTES_v0.1.0.md           # 首个公开版本的中英双语发布说明
 │   ├── RELEASE_NOTES_v0.1.1.md           # 本地正式使用收口版的双语发布说明
 │   ├── RELEASE_NOTES_v0.1.3.md           # 强化挂载安全、NTFS 诊断与 Mac 本地修复的发布说明
+│   ├── RELEASE_NOTES_v0.1.4.md           # 修复 GitHub 安装包 damaged 问题与首次打开体验的发布说明
 │   └── TESTING.md                        # 自动化与真实磁盘测试策略
 ├── scripts/
 │   ├── generate-emoji-icon.swift         # 生成 DMG 与 App Bundle 用 Emoji 图标
@@ -76,6 +77,7 @@ MountGuard/
 - 产品定义文档不再进入公开仓库轨道；公开仓库只保留对外可分享的设计与使用资料，避免内部输入直接暴露。
 - README 的第一职责是帮助用户快速理解价值并开始使用；路线型内容只保留入口，不在首页抢主叙事。
 - 当前主叙事已经从“检测工具”收敛为“挂载管理器”：稳定挂载与双向读写准备态是第一优先级，检测与日志是辅助层。
+- `package-dmg.sh` 现在在组装 App Bundle 后统一重签名并校验，再写入 DMG，避免下载包被 Gatekeeper 误判成 damaged；完整免提示安装仍依赖后续 notarization。
 
 ## 开发规范
 - 所有磁盘命令默认走只读枚举；任何会改变系统状态的操作必须是显式用户触发。
@@ -92,3 +94,4 @@ MountGuard/
 - 2026-04-15：修复挂载状态真相源，新增 GUI 构建版本信息，并把 NTFS unsafe state 收敛成明确的数据安全阻断提示。
 - 2026-04-15：新增“磁盘医生”只读诊断骨架，把 NTFS unsafe root cause、原生校验不支持与 Windows 修复建议收进 GUI。
 - 2026-04-15：把“磁盘医生”扩展为“诊断 + 修复计划 + Mac 本地修复”链路，补 CLI doctor/doctor-repair、发布文案刷新和私有规划文件移出仓库轨道。
+- 2026-04-15：修复 GitHub DMG 的签名组装问题，新增安装说明，降低“damaged”误报并优化 footer 展示。

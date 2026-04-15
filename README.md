@@ -110,6 +110,23 @@ Real screenshots can be added later. For now, here is the product shape:
 
 ## Quick Start
 
+### Install from DMG
+
+1. Download the latest DMG from GitHub Releases.
+2. Drag `MountGuard.app` into `Applications`.
+3. Launch it from `Applications`.
+
+If macOS blocks the first launch:
+
+- right-click `MountGuard.app`
+- choose `Open`
+- confirm once
+
+Why:
+
+- MountGuard release builds are packaged and bundle-signed for integrity
+- but until full notarization is in place, Gatekeeper may still ask for one manual confirmation on first launch
+
 ### Launch the app
 
 ```bash

@@ -7,6 +7,7 @@ cd "$ROOT_DIR"
 VERSION="${1:-0.1.0}"
 BUILD_DATE="$(date +%Y.%m.%d)"
 GIT_COMMIT="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+SIGN_IDENTITY="${MOUNTGUARD_SIGN_IDENTITY:--}"
 BUILD_ROOT="$ROOT_DIR/.build/mountguard-release"
 APP_ROOT="$BUILD_ROOT/MountGuard.app"
 APP_CONTENTS="$APP_ROOT/Contents"
@@ -17,6 +18,7 @@ DMG_PATH="$DIST_DIR/MountGuard-${VERSION}.dmg"
 STAGING_DIR="$BUILD_ROOT/dmg-root"
 ICONSET_DIR="$BUILD_ROOT/MountGuard.iconset"
 ICNS_PATH="$APP_RESOURCES/MountGuard.icns"
+QUICK_START_PATH="$STAGING_DIR/MountGuard Quick Start.txt"
 
 rm -rf "$BUILD_ROOT" "$DMG_PATH"
 mkdir -p "$APP_MACOS" "$APP_RESOURCES" "$DIST_DIR" "$STAGING_DIR"
@@ -74,7 +76,30 @@ PLIST
 /usr/bin/sed -i '' "s/__BUILD_DATE__/${BUILD_DATE}/g" "$APP_CONTENTS/Info.plist"
 /usr/bin/sed -i '' "s/__GIT_COMMIT__/${GIT_COMMIT}/g" "$APP_CONTENTS/Info.plist"
 
-cp -R "$APP_ROOT" "$STAGING_DIR/"
+/usr/bin/xattr -cr "$APP_ROOT"
+/usr/bin/codesign --force --deep --sign "$SIGN_IDENTITY" "$APP_ROOT"
+/usr/bin/codesign --verify --deep --strict "$APP_ROOT"
+
+cat > "$QUICK_START_PATH" <<EOF
+MountGuard Quick Start
+
+1. Drag MountGuard.app to Applications.
+2. Open it from Applications.
+3. If macOS warns on first launch:
+   - right-click MountGuard.app
+   - choose Open
+   - confirm once
+
+Why this may happen:
+- this build is code-signed for bundle integrity
+- it may still be blocked by Gatekeeper if it has not been notarized for your machine
+
+Version: ${VERSION}
+Build: ${BUILD_DATE}
+Commit: ${GIT_COMMIT}
+EOF
+
+/usr/bin/ditto "$APP_ROOT" "$STAGING_DIR/MountGuard.app"
 ln -s /Applications "$STAGING_DIR/Applications"
 
 hdiutil create \

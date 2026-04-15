@@ -629,14 +629,19 @@ private struct FooterBar: View {
     var body: some View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(AppText.current("Bill 用爱创作🩷，让Mac 读写移动硬盘更加省心", "Made with love by Bill Make Reading and Writing More Enjoyable", language: appLanguage))
+                Text(AppText.current("Bill 用爱创作🩷，让Mac 读写移动硬盘更加省心", "Made with love 🩷 by Bill Make Reading and Writing More Enjoyable", language: appLanguage))
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Link("Github", destination: URL(string: "https://github.com/BillLucky/MountGuard-for-Mac")!)
-                    .font(.caption)
-                Text(AppBuildInfo.versionText)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Link("Github", destination: URL(string: "https://github.com/BillLucky/MountGuard-for-Mac")!)
+                        .font(.caption)
+                    Text("•")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text(AppBuildInfo.versionText)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
             Spacer()
             Toggle(

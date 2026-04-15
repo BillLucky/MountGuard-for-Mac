@@ -113,6 +113,23 @@ MountGuard 调用 ntfsfix
 
 ## 快速开始
 
+### 从 DMG 安装
+
+1. 从 GitHub Releases 下载最新 DMG。
+2. 把 `MountGuard.app` 拖进 `Applications`。
+3. 从 `Applications` 启动。
+
+如果 macOS 第一次启动时拦截：
+
+- 右键 `MountGuard.app`
+- 选择 `打开`
+- 再确认一次
+
+原因：
+
+- 当前 release 已经做了 App Bundle 签名，避免包体结构被系统判成损坏
+- 但在完整公证链路接入前，Gatekeeper 仍可能在首次启动时要求你手动确认一次
+
 ### 启动 GUI
 
 ```bash
