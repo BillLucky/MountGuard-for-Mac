@@ -12,6 +12,13 @@ Its job is simple:
 - help you diagnose and repair common blockers before you try risky writes
 - let you eject cleanly after copying data
 
+## UI Preview
+![menu-bar-en](./assets/screenshots/menu-bar-en.png)
+
+
+![main-gui-en](./assets/screenshots/main-gui-en.png)
+
+
 ## What It Solves
 
 Many disk tools stop at "the disk exists".
