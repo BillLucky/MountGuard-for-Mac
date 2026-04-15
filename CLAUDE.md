@@ -11,6 +11,8 @@ MountGuard/
 │   │   │   ├── DiskIOTestReport.swift    # 磁盘自测报告与步骤结果
 │   │   │   ├── DiskProcessUsage.swift    # 磁盘占用进程的结构化模型
 │   │   │   └── DiskVolume.swift          # 外接卷的统一领域模型
+│   │   ├── Support/
+│   │   │   └── MountGuardLocalized.swift # Kit 层共享的中英文本真相源
 │   │   └── Services/
 │   │       ├── DiskArbitrationMonitor.swift  # 基于 DiskArbitration 的事件监听
 │   │       ├── DiskCommandService.swift      # 安全移除编排：占用校验、sync、unmount、eject
@@ -38,6 +40,7 @@ MountGuard/
 │       └── self-test.svg                 # README 自测流程说明图
 ├── docs/
 │   ├── ADVANCED_CAPABILITIES.md          # 备份、增量同步、校验能力的演进路线
+│   ├── DEVELOPMENT.md                    # 本地环境、构建、打包、签名与发布路径
 │   ├── NEXT_PHASE.md                     # 当前阶段收口后的后续工作清单
 │   ├── OPEN_SOURCE_RELEASE.md            # 公开仓库与发布前检查清单
 │   ├── PRIVACY.md                        # 本地优先与无遥测边界说明
@@ -45,6 +48,7 @@ MountGuard/
 │   ├── RELEASE_NOTES_v0.1.1.md           # 本地正式使用收口版的双语发布说明
 │   ├── RELEASE_NOTES_v0.1.3.md           # 强化挂载安全、NTFS 诊断与 Mac 本地修复的发布说明
 │   ├── RELEASE_NOTES_v0.1.4.md           # 修复 GitHub 安装包 damaged 问题与首次打开体验的发布说明
+│   ├── RELEASE_NOTES_v0.1.5.md           # 国际化收口、GUI 精简与开发文档增强的发布说明
 │   └── TESTING.md                        # 自动化与真实磁盘测试策略
 ├── scripts/
 │   ├── generate-emoji-icon.swift         # 生成 DMG 与 App Bundle 用 Emoji 图标
@@ -73,11 +77,12 @@ MountGuard/
 - `DiskDoctorService` 只做只读诊断，不写盘；重点把 NTFS unsafe、Windows 快速启动/休眠残留、原生校验不支持翻译成可操作建议。
 - `DiskDoctorService` 现在同时能生成修复计划，并在用户确认后调用 `ntfsfix` 做谨慎的 Mac 本地修复；它仍然不是 `chkdsk` 的替代品。
 - `DiskIOTestService` 把真实磁盘验证限制在 MountGuard 自己创建和清理的隐藏目录里，让自测覆盖 IO 真实路径，又不污染用户数据。
-- 双语能力先收敛到 `AppText`，默认英文、支持切中文，先解决 GUI 与文档的开放性，再决定是否引入完整资源级本地化。
+- 双语能力现在分成两层：`AppText` 负责 App 层文案，`MountGuardLocalized` 负责 Kit 层用户可见文本，避免 GUI 切英文后底层错误仍冒中文。
 - 产品定义文档不再进入公开仓库轨道；公开仓库只保留对外可分享的设计与使用资料，避免内部输入直接暴露。
 - README 的第一职责是帮助用户快速理解价值并开始使用；路线型内容只保留入口，不在首页抢主叙事。
 - 当前主叙事已经从“检测工具”收敛为“挂载管理器”：稳定挂载与双向读写准备态是第一优先级，检测与日志是辅助层。
 - `package-dmg.sh` 现在在组装 App Bundle 后统一重签名并校验，再写入 DMG，避免下载包被 Gatekeeper 误判成 damaged；完整免提示安装仍依赖后续 notarization。
+- GUI 说明文本现在遵循“动作优先、细节后置”：主面板尽量短，把二级解释收进 `info` 提示入口，避免主界面堆满说明书。
 
 ## 开发规范
 - 所有磁盘命令默认走只读枚举；任何会改变系统状态的操作必须是显式用户触发。
@@ -95,3 +100,4 @@ MountGuard/
 - 2026-04-15：新增“磁盘医生”只读诊断骨架，把 NTFS unsafe root cause、原生校验不支持与 Windows 修复建议收进 GUI。
 - 2026-04-15：把“磁盘医生”扩展为“诊断 + 修复计划 + Mac 本地修复”链路，补 CLI doctor/doctor-repair、发布文案刷新和私有规划文件移出仓库轨道。
 - 2026-04-15：修复 GitHub DMG 的签名组装问题，新增安装说明，降低“damaged”误报并优化 footer 展示。
+- 2026-04-15：补齐 Kit/App 双层国际化真相源，精简 GUI 说明文本，新增 `DEVELOPMENT.md` 并把 Quick Start 调整为 GUI 优先。

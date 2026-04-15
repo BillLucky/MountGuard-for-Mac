@@ -78,11 +78,15 @@ public struct DiskVolume: Codable, Equatable, Identifiable, Sendable {
     }
 
     public var mountStatusText: String {
-        isMounted ? "已挂载" : "未挂载"
+        isMounted
+            ? MountGuardLocalized.text("已挂载", "Mounted")
+            : MountGuardLocalized.text("未挂载", "Not Mounted")
     }
 
     public var writeStatusText: String {
-        isWritable ? "可写" : "只读"
+        isWritable
+            ? MountGuardLocalized.text("可写", "Writable")
+            : MountGuardLocalized.text("只读", "Read Only")
     }
 
     public func resolved(

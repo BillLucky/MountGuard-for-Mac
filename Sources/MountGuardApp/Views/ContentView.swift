@@ -75,7 +75,7 @@ struct ContentView: View {
             )
         ) { prompt in
             Alert(
-                title: Text(AppText.current("确认执行修复", "Confirm Repair", language: appLanguage)),
+                title: Text(prompt.title),
                 message: Text(prompt.message),
                 primaryButton: .destructive(Text(AppText.current("继续修复", "Run Repair", language: appLanguage))) {
                     Task {
@@ -222,7 +222,7 @@ private struct DiskDetailView: View {
                 Text(DiskFormatters.capacitySummary(for: volume))
                     .font(.headline)
             } currentValueLabel: {
-                Text("剩余 \(DiskFormatters.bytes(volume.freeBytes))")
+                Text(AppText.current("剩余", "Free", language: appLanguage) + " \(DiskFormatters.bytes(volume.freeBytes))")
             }
             .tint(volume.isWritable ? .accentColor : .orange)
         }
@@ -262,8 +262,18 @@ private struct DiskDetailView: View {
 
             if volume.fileSystemType.lowercased() == "ntfs" {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(AppText.current("NTFS 读写说明", "NTFS Read/Write", language: appLanguage))
-                        .font(.headline)
+                    HStack(spacing: 6) {
+                        Text(AppText.current("NTFS 读写", "NTFS Read/Write", language: appLanguage))
+                            .font(.headline)
+                        InlineHelpButton(
+                            title: AppText.current("NTFS 说明", "NTFS Help", language: appLanguage),
+                            message: AppText.current(
+                                "系统默认会把 NTFS 挂成只读。增强读写会请求一次管理员授权，并挂到 `~/MountGuardVolumes/磁盘名`。这不是“完全磁盘访问”权限。",
+                                "macOS mounts NTFS read-only by default. Enhanced RW asks for administrator approval once and mounts under `~/MountGuardVolumes/<disk-name>`. This is not Full Disk Access.",
+                                language: appLanguage
+                            )
+                        )
+                    }
                     Text(model.accessStrategyDescription(for: volume))
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -277,26 +287,32 @@ private struct DiskDetailView: View {
                     }
                     .disabled(!model.supportsEnhancedReadWrite(for: volume) || model.shouldBlockEnhancedReadWrite(for: volume))
 
-                    Text(AppText.current("增强读写挂载会弹出一次管理员授权，并把 NTFS 挂到你的家目录 `~/MountGuardVolumes/磁盘名` 下。它不是“完全磁盘访问”权限。", "Enhanced RW Mount prompts once for administrator approval and mounts NTFS under `~/MountGuardVolumes/<disk-name>`. This is not Full Disk Access.", language: appLanguage))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
                     if model.shouldBlockEnhancedReadWrite(for: volume) {
-                        Text(AppText.current("磁盘医生最近一次诊断已经判定当前不适合继续尝试读写挂载。请先按诊断建议完成修复。", "The latest Disk Doctor report blocks RW remount for safety. Follow the recommended repair steps first.", language: appLanguage))
+                        Text(AppText.current("当前诊断阻止继续切换到读写。", "Disk Doctor is blocking RW remount right now.", language: appLanguage))
                             .font(.caption)
                             .foregroundStyle(.orange)
                     }
 
                     if !model.supportsEnhancedReadWrite(for: volume) {
-                        Text(AppText.current("当前机器缺少可用的 ntfs-3g / macFUSE 读写链路，仍可走系统只读挂载。", "This Mac does not currently have a usable ntfs-3g / macFUSE RW path, so MountGuard falls back to system read-only mount.", language: appLanguage))
+                        Text(AppText.current("当前机器未就绪增强读写链路。", "Enhanced RW is not ready on this Mac.", language: appLanguage))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
             } else {
-                Text(AppText.current("对 exFAT、APFS、HFS+ 等系统可写文件系统，MountGuard 优先使用系统默认挂载能力，保证稳定和传输效率。", "For exFAT, APFS, HFS+, and other system-writable filesystems, MountGuard prefers the default macOS mount path for stability and throughput.", language: appLanguage))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Text(AppText.current("系统默认挂载可直接使用。", "The default macOS mount path is ready to use.", language: appLanguage))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    InlineHelpButton(
+                        title: AppText.current("挂载说明", "Mount Help", language: appLanguage),
+                        message: AppText.current(
+                            "对 exFAT、APFS、HFS+ 等系统可写文件系统，MountGuard 优先使用系统默认挂载能力，保证稳定和传输效率。",
+                            "For exFAT, APFS, HFS+, and other system-writable filesystems, MountGuard prefers the default macOS mount path for stability and throughput.",
+                            language: appLanguage
+                        )
+                    )
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -321,11 +337,16 @@ private struct DiskDetailView: View {
                         .font(.caption)
                         .foregroundStyle(doctorStatusColor(for: report.status))
                 }
-            }
 
-            Text(AppText.current("磁盘医生会先做只读诊断；如果检测到常见 NTFS 阻断项，并且本机具备 `ntfsfix`，它还能在你确认后尝试一次 Mac 本地修复。", "Disk Doctor starts with read-only diagnosis. If it finds common NTFS blockers and this Mac has `ntfsfix`, it can attempt one guided local repair after you confirm.", language: appLanguage))
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                InlineHelpButton(
+                    title: AppText.current("磁盘医生说明", "Disk Doctor Help", language: appLanguage),
+                    message: AppText.current(
+                        "磁盘医生先做只读诊断；如果检测到常见 NTFS 阻断项，并且本机具备 `ntfsfix`，它还能在你确认后尝试一次 Mac 本地修复。",
+                        "Disk Doctor starts with read-only diagnosis. If it finds common NTFS blockers and this Mac has `ntfsfix`, it can attempt one guided local repair after you confirm.",
+                        language: appLanguage
+                    )
+                )
+            }
 
             if let report {
                 Text(report.summary)
@@ -666,6 +687,35 @@ private struct FooterBar: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
         .background(.bar)
+    }
+}
+
+private struct InlineHelpButton: View {
+    let title: String
+    let message: String
+
+    @State private var isPresented = false
+
+    var body: some View {
+        Button {
+            isPresented = true
+        } label: {
+            Image(systemName: "info.circle")
+                .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(title)
+                    .font(.headline)
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(14)
+            .frame(width: 280, alignment: .leading)
+        }
+        .help(title)
     }
 }
 

@@ -21,10 +21,17 @@ Current automated coverage includes:
 
 ## Real Disk Validation
 
-Use the CLI first:
+For normal product validation, use the GUI first:
+
+- install the latest DMG from GitHub Releases
+- open the app from `Applications`
+- validate mount, open, Disk Doctor, self-test, and safe eject from the GUI
+
+Use the CLI when you need scripted diagnosis or repeatable contributor checks:
 
 ```bash
 swift run --disable-sandbox mountguardctl list
+swift run --disable-sandbox mountguardctl doctor <diskIdentifier>
 swift run --disable-sandbox mountguardctl ps <diskIdentifier>
 swift run --disable-sandbox mountguardctl selftest <diskIdentifier>
 ```
@@ -36,12 +43,12 @@ Rules:
 - never force writes to a read-only volume
 - only let self-test touch `.mountguard-selftest`
 
-## Current Debug Disk
+## Sample Safety Expectation
 
-The mounted sample disk `/Volumes/Backup` currently reports:
+If a real test disk is currently read-only:
 
-- filesystem: `NTFS`
-- mount mode: `read-only`
-- expected self-test behavior: skip write cases safely
+- Disk Doctor should explain why
+- self-test should skip write checks safely
+- MountGuard should not pretend that RW is available
 
-This is intentional. A skipped write test is safer than a forced failing write.
+A skipped write test is safer than a forced failing write.

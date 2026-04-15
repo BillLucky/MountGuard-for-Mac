@@ -1,6 +1,6 @@
 # MountGuard
 
-[中文说明](./README.zh-CN.md) | [Testing Guide](./docs/TESTING.md) | [Release Guide](./docs/OPEN_SOURCE_RELEASE.md)
+[中文说明](./README.zh-CN.md) | [Development Guide](./docs/DEVELOPMENT.md) | [Testing Guide](./docs/TESTING.md) | [Release Guide](./docs/OPEN_SOURCE_RELEASE.md)
 
 MountGuard is a native macOS app for external disks.
 
@@ -112,11 +112,22 @@ Real screenshots can be added later. For now, here is the product shape:
 
 ### Install from DMG
 
-1. Download the latest DMG from GitHub Releases.
-2. Drag `MountGuard.app` into `Applications`.
-3. Launch it from `Applications`.
+1. Open the latest [GitHub Release](https://github.com/BillLucky/MountGuard-for-Mac/releases/latest).
+2. Download the latest DMG.
+3. Drag `MountGuard.app` into `Applications`.
+4. Launch it from `Applications`.
 
-If macOS blocks the first launch:
+This is the recommended path for normal users.
+
+### Use the GUI
+
+After launch, the normal flow is:
+
+1. select your external disk in the sidebar
+2. use `Mount`, `Open`, `Disk Doctor`, or `Safe Eject`
+3. only use `Enhanced RW Mount` when Disk Doctor is not blocking the disk
+
+### If first launch is blocked
 
 - right-click `MountGuard.app`
 - choose `Open`
@@ -125,49 +136,35 @@ If macOS blocks the first launch:
 Why:
 
 - MountGuard release builds are packaged and bundle-signed for integrity
-- but until full notarization is in place, Gatekeeper may still ask for one manual confirmation on first launch
+- until full notarization is in place, Gatekeeper may still ask for one manual confirmation on first launch
 
-### Launch the app
+## Developer Tools
+
+The commands below are for development, diagnostics, and contributor workflows.
+
+### Run the app from source
 
 ```bash
 ./scripts/run-local-app.sh
 ```
 
-### List disks
+### CLI helpers
 
 ```bash
 swift run --disable-sandbox mountguardctl list
-```
-
-### Diagnose a disk
-
-```bash
 swift run --disable-sandbox mountguardctl doctor <diskIdentifier>
-```
-
-### Run a guided Mac-side repair
-
-```bash
 swift run --disable-sandbox mountguardctl doctor-repair <diskIdentifier>
 ```
 
-### Check what is blocking a disk
+### More for contributors
 
-```bash
-swift run --disable-sandbox mountguardctl ps <diskIdentifier>
-```
+See [Development Guide](./docs/DEVELOPMENT.md) for:
 
-### Run the safe self-test
+- local environment setup
+- build and packaging steps
+- signing and first-launch notes
+- release workflow
 
-```bash
-swift run --disable-sandbox mountguardctl selftest <diskIdentifier>
-```
-
-### Eject safely
-
-```bash
-swift run --disable-sandbox mountguardctl eject <diskIdentifier>
-```
 
 ## Filesystem Strategy
 

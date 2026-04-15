@@ -109,7 +109,7 @@ public struct DiskInventoryService: Sendable {
         let fileSystemName = stringValue(
             plist,
             key: "FilesystemName",
-            default: stringValue(plist, key: "FilesystemUserVisibleName", default: "未知文件系统")
+            default: stringValue(plist, key: "FilesystemUserVisibleName", default: MountGuardLocalized.text("未知文件系统", "Unknown File System"))
         )
         let fileSystemType = stringValue(plist, key: "FilesystemType", default: "unknown")
         let busProtocol = stringValue(plist, key: "BusProtocol", default: "Unknown")
@@ -121,7 +121,7 @@ public struct DiskInventoryService: Sendable {
         let isExternal = boolValue(plist, key: "RemovableMediaOrExternalDevice", fallbackKeys: ["Ejectable", "Removable", "RemovableMedia"])
         let isEjectable = boolValue(plist, key: "Ejectable")
         let isBootable = boolValue(plist, key: "Bootable")
-        let smartStatus = stringValue(plist, key: "SMARTStatus", default: "未知")
+        let smartStatus = stringValue(plist, key: "SMARTStatus", default: MountGuardLocalized.text("未知", "Unknown"))
         let diskUUID = plist["DiskUUID"] as? String
 
         return DiskVolume(

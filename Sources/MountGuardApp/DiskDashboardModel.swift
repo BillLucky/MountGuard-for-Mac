@@ -80,7 +80,7 @@ final class DiskDashboardModel: ObservableObject {
         self.monitor = monitor
         self.monitor?.onChange = { [weak self] in
             Task {
-                await self?.refresh(reason: "检测到磁盘变化", logSuccess: true, attemptAutoMount: true)
+                await self?.refresh(reason: AppText.current("检测到磁盘变化", "Disk change detected"), logSuccess: true, attemptAutoMount: true)
             }
         }
     }
@@ -90,7 +90,7 @@ final class DiskDashboardModel: ObservableObject {
         hasStarted = true
 
         Task {
-            await refresh(reason: "应用启动", logSuccess: false, attemptAutoMount: true)
+            await refresh(reason: AppText.current("应用启动", "App launch"), logSuccess: false, attemptAutoMount: true)
         }
     }
 
@@ -140,11 +140,11 @@ final class DiskDashboardModel: ObservableObject {
             }
 
             if logSuccess {
-                appendLog(.success, "\(reason)：已刷新 \(fetchedVolumes.count) 个外接卷")
+                appendLog(.success, "\(reason): \(AppText.current("已刷新", "Refreshed")) \(fetchedVolumes.count) \(AppText.current("个外接卷", "external volume(s)"))")
             }
         } catch {
             lastErrorMessage = error.localizedDescription
-            appendLog(.error, "\(reason)：\(error.localizedDescription)")
+            appendLog(.error, "\(reason): \(error.localizedDescription)")
         }
     }
 
@@ -155,14 +155,14 @@ final class DiskDashboardModel: ObservableObject {
                 try commandService.mountDefault(volume)
             }.value
 
-            let prefix = isAutomatic ? "自动挂载完成" : "手动挂载完成"
-            appendLog(.success, "\(prefix)：\(volume.displayName)")
+            let prefix = isAutomatic ? AppText.current("自动挂载完成", "Auto-mount finished") : AppText.current("手动挂载完成", "Manual mount finished")
+            appendLog(.success, "\(prefix): \(volume.displayName)")
             await refresh(reason: prefix, logSuccess: false)
         } catch {
             lastErrorMessage = error.localizedDescription
-            let prefix = isAutomatic ? "自动挂载失败" : "挂载失败"
-            appendLog(.error, "\(prefix)：\(volume.displayName) - \(error.localizedDescription)")
-            await refresh(reason: "\(prefix) 后同步状态", logSuccess: false)
+            let prefix = isAutomatic ? AppText.current("自动挂载失败", "Auto-mount failed") : AppText.current("挂载失败", "Mount failed")
+            appendLog(.error, "\(prefix): \(volume.displayName) - \(error.localizedDescription)")
+            await refresh(reason: AppText.current("\(prefix) 后同步状态", "Refresh after \(prefix.lowercased())"), logSuccess: false)
         }
     }
 
@@ -173,12 +173,12 @@ final class DiskDashboardModel: ObservableObject {
                 try commandService.remountNTFSReadWrite(volume)
             }.value
 
-            appendLog(.success, "增强读写挂载完成：\(volume.displayName)")
-            await refresh(reason: "增强读写挂载完成", logSuccess: false)
+            appendLog(.success, "\(AppText.current("增强读写挂载完成", "Enhanced RW mount finished")): \(volume.displayName)")
+            await refresh(reason: AppText.current("增强读写挂载完成", "Enhanced RW mount finished"), logSuccess: false)
         } catch {
             lastErrorMessage = error.localizedDescription
-            appendLog(.error, "增强读写挂载失败：\(volume.displayName) - \(error.localizedDescription)")
-            await refresh(reason: "增强读写挂载失败后同步状态", logSuccess: false)
+            appendLog(.error, "\(AppText.current("增强读写挂载失败", "Enhanced RW mount failed")): \(volume.displayName) - \(error.localizedDescription)")
+            await refresh(reason: AppText.current("增强读写挂载失败后同步状态", "Refresh after enhanced RW mount failure"), logSuccess: false)
         }
     }
 
@@ -189,37 +189,37 @@ final class DiskDashboardModel: ObservableObject {
                 try commandService.unmount(volume)
             }.value
 
-            appendLog(.success, "已卸载 \(volume.displayName)")
-            await refresh(reason: "卸载完成", logSuccess: false)
+            appendLog(.success, "\(AppText.current("已卸载", "Unmounted")) \(volume.displayName)")
+            await refresh(reason: AppText.current("卸载完成", "Unmount completed"), logSuccess: false)
         } catch {
             lastErrorMessage = error.localizedDescription
-            appendLog(.error, "卸载失败：\(volume.displayName) - \(error.localizedDescription)")
-            await refresh(reason: "卸载失败后同步状态", logSuccess: false)
+            appendLog(.error, "\(AppText.current("卸载失败", "Unmount failed")): \(volume.displayName) - \(error.localizedDescription)")
+            await refresh(reason: AppText.current("卸载失败后同步状态", "Refresh after unmount failure"), logSuccess: false)
         }
     }
 
     func open(_ volume: DiskVolume) {
         guard let mountPoint = volume.mountPoint else {
-            lastErrorMessage = "磁盘当前未挂载，无法打开。"
-            appendLog(.error, "打开失败：\(volume.displayName) 当前未挂载")
+            lastErrorMessage = AppText.current("磁盘当前未挂载，无法打开。", "The disk is not mounted, so it cannot be opened.")
+            appendLog(.error, "\(AppText.current("打开失败", "Open failed")): \(volume.displayName)")
             return
         }
 
         let url = URL(fileURLWithPath: mountPoint)
         guard FileManager.default.fileExists(atPath: mountPoint) else {
-            lastErrorMessage = "挂载点已不存在，正在刷新磁盘状态。"
-            appendLog(.error, "打开失败：\(volume.displayName) 的挂载点不存在")
+            lastErrorMessage = AppText.current("挂载点已不存在，正在刷新磁盘状态。", "The mount point no longer exists. Refreshing disk state.")
+            appendLog(.error, "\(AppText.current("打开失败", "Open failed")): \(volume.displayName)")
             Task {
-                await refresh(reason: "打开失败后同步状态", logSuccess: false)
+                await refresh(reason: AppText.current("打开失败后同步状态", "Refresh after open failure"), logSuccess: false)
             }
             return
         }
 
         if NSWorkspace.shared.open(url) {
-            appendLog(.info, "已在 Finder 中打开 \(volume.displayName)")
+            appendLog(.info, "\(AppText.current("已在 Finder 中打开", "Opened in Finder")) \(volume.displayName)")
         } else {
-            lastErrorMessage = "Finder 未能打开该挂载点。"
-            appendLog(.error, "打开失败：Finder 无法打开 \(volume.displayName)")
+            lastErrorMessage = AppText.current("Finder 未能打开该挂载点。", "Finder could not open this mount point.")
+            appendLog(.error, "\(AppText.current("打开失败", "Open failed")): \(volume.displayName)")
         }
     }
 
@@ -237,12 +237,12 @@ final class DiskDashboardModel: ObservableObject {
 
     func inspectUsage(of volume: DiskVolume) async {
         guard volume.mountPoint != nil else {
-            lastErrorMessage = "磁盘当前未挂载，无法扫描占用。"
-            appendLog(.error, "占用扫描失败：\(volume.displayName) 当前未挂载")
+            lastErrorMessage = AppText.current("磁盘当前未挂载，无法扫描占用。", "The disk is not mounted, so usage cannot be scanned.")
+            appendLog(.error, "\(AppText.current("占用扫描失败", "Usage scan failed")): \(volume.displayName)")
             return
         }
 
-        appendLog(.info, "正在扫描占用：\(volume.displayName)")
+        appendLog(.info, "\(AppText.current("正在扫描占用", "Scanning usage")): \(volume.displayName)")
         do {
             let commandService = self.commandService
             let processes = try await Task.detached(priority: .userInitiated) {
@@ -251,14 +251,14 @@ final class DiskDashboardModel: ObservableObject {
 
             usageByVolumeID[volume.id] = processes
             if processes.isEmpty {
-                appendLog(.success, "占用扫描完成：\(volume.displayName) 当前无占用进程")
+                appendLog(.success, "\(AppText.current("占用扫描完成", "Usage scan finished")): \(volume.displayName)")
             } else {
-                appendLog(.info, "占用扫描完成：\(volume.displayName) 检测到 \(processes.count) 个占用进程")
+                appendLog(.info, "\(AppText.current("占用扫描完成", "Usage scan finished")): \(volume.displayName) • \(processes.count) \(AppText.current("个占用进程", "process(es)"))")
             }
         } catch {
             lastErrorMessage = error.localizedDescription
-            appendLog(.error, "占用扫描失败：\(volume.displayName) - \(error.localizedDescription)")
-            await refresh(reason: "占用扫描失败后同步状态", logSuccess: false)
+            appendLog(.error, "\(AppText.current("占用扫描失败", "Usage scan failed")): \(volume.displayName) - \(error.localizedDescription)")
+            await refresh(reason: AppText.current("占用扫描失败后同步状态", "Refresh after usage scan failure"), logSuccess: false)
         }
     }
 
@@ -271,17 +271,17 @@ final class DiskDashboardModel: ObservableObject {
         ioTestReportsByVolumeID[volume.id] = report
         switch report.status {
         case .passed:
-            appendLog(.success, "磁盘自测通过：\(volume.displayName)")
+            appendLog(.success, "\(AppText.current("磁盘自测通过", "Disk self-test passed")): \(volume.displayName)")
         case .skipped:
-            appendLog(.info, "磁盘自测已跳过：\(volume.displayName)")
+            appendLog(.info, "\(AppText.current("磁盘自测已跳过", "Disk self-test skipped")): \(volume.displayName)")
         case .failed:
-            lastErrorMessage = report.steps.last(where: { $0.status == .failed })?.detail ?? "磁盘自测失败"
-            appendLog(.error, "磁盘自测失败：\(volume.displayName)")
+            lastErrorMessage = report.steps.last(where: { $0.status == .failed })?.detail ?? AppText.current("磁盘自测失败", "Disk self-test failed")
+            appendLog(.error, "\(AppText.current("磁盘自测失败", "Disk self-test failed")): \(volume.displayName)")
         }
     }
 
     func runDoctorDiagnosis(on volume: DiskVolume) async {
-        appendLog(.info, "开始只读诊断：\(volume.displayName)")
+        appendLog(.info, "\(AppText.current("开始只读诊断", "Starting read-only diagnosis")): \(volume.displayName)")
 
         do {
             let doctorService = self.doctorService
@@ -292,16 +292,16 @@ final class DiskDashboardModel: ObservableObject {
             doctorReportsByVolumeID[volume.id] = report
             switch report.status {
             case .healthy:
-                appendLog(.success, "磁盘医生：\(volume.displayName) 未发现阻断项")
+                appendLog(.success, "\(AppText.current("磁盘医生", "Disk Doctor")): \(volume.displayName) • \(AppText.current("未发现阻断项", "No blocker found"))")
             case .warning:
-                appendLog(.info, "磁盘医生：\(volume.displayName) 检测到需要注意的信号")
+                appendLog(.info, "\(AppText.current("磁盘医生", "Disk Doctor")): \(volume.displayName) • \(AppText.current("检测到提醒", "Warning detected"))")
             case .blocked:
                 lastErrorMessage = report.summary
-                appendLog(.error, "磁盘医生：\(volume.displayName) 检测到阻断读写的风险")
+                appendLog(.error, "\(AppText.current("磁盘医生", "Disk Doctor")): \(volume.displayName) • \(AppText.current("检测到阻断", "Blocker detected"))")
             }
         } catch {
             lastErrorMessage = error.localizedDescription
-            appendLog(.error, "磁盘医生执行失败：\(volume.displayName) - \(error.localizedDescription)")
+            appendLog(.error, "\(AppText.current("磁盘医生执行失败", "Disk Doctor failed")): \(volume.displayName) - \(error.localizedDescription)")
         }
     }
 
@@ -311,21 +311,24 @@ final class DiskDashboardModel: ObservableObject {
         }
 
         guard let report = doctorReportsByVolumeID[volume.id], let plan = report.repairPlan else {
-            lastErrorMessage = "当前诊断没有给出可执行的修复计划。"
-            appendLog(.info, "磁盘医生：\(volume.displayName) 当前没有可执行的修复计划")
+            lastErrorMessage = AppText.current("当前诊断没有给出可执行的修复计划。", "The current diagnosis did not produce a repair plan.")
+            appendLog(.info, "\(AppText.current("磁盘医生", "Disk Doctor")): \(volume.displayName) • \(AppText.current("没有可执行修复计划", "No repair plan available"))")
             return
         }
 
         guard plan.canRunOnMac else {
             lastErrorMessage = plan.summary
-            appendLog(.info, "磁盘医生：\(volume.displayName) 当前只能给出人工修复路径")
+            appendLog(.info, "\(AppText.current("磁盘医生", "Disk Doctor")): \(volume.displayName) • \(AppText.current("仅提供手动修复路径", "Manual repair only"))")
             return
         }
 
         pendingDoctorRepairConfirmation = DoctorRepairConfirmation(
             volumeID: volume.id,
-            title: "确认执行 Mac 本地修复",
-            message: "MountGuard 将对 \(volume.displayName) 调用 ntfsfix 做一次谨慎修复，并在修复后重新诊断。这个过程会写入 NTFS 元数据，但不是完整的 Windows chkdsk。只有在你确认后才会继续。"
+            title: AppText.current("确认执行 Mac 本地修复", "Confirm guided Mac repair"),
+            message: AppText.current(
+                "MountGuard 将对 \(volume.displayName) 调用 ntfsfix 做一次谨慎修复，并在修复后重新诊断。这个过程会写入 NTFS 元数据，但只有在你确认后才会继续。",
+                "MountGuard will run a cautious ntfsfix repair on \(volume.displayName), then diagnose it again. This writes NTFS metadata and only runs after you confirm."
+            )
         )
     }
 
@@ -340,12 +343,12 @@ final class DiskDashboardModel: ObservableObject {
         pendingDoctorRepairConfirmation = nil
 
         guard let volume = volumes.first(where: { $0.id == confirmation.volumeID }) else {
-            lastErrorMessage = "目标磁盘状态已经变化，请先刷新后再试。"
-            appendLog(.error, "磁盘医生修复失败：目标磁盘已不在当前列表中")
+            lastErrorMessage = AppText.current("目标磁盘状态已经变化，请先刷新后再试。", "The disk state changed. Refresh and try again.")
+            appendLog(.error, AppText.current("磁盘医生修复失败: 目标磁盘已不在当前列表中", "Disk Doctor repair failed: the target disk is no longer in the list"))
             return
         }
 
-        appendLog(.info, "开始 Mac 本地修复：\(volume.displayName)")
+        appendLog(.info, "\(AppText.current("开始 Mac 本地修复", "Starting guided Mac repair")): \(volume.displayName)")
         do {
             let doctorService = self.doctorService
             let report = try await Task.detached(priority: .userInitiated) {
@@ -353,20 +356,20 @@ final class DiskDashboardModel: ObservableObject {
             }.value
 
             doctorReportsByVolumeID[volume.id] = report
-            await refresh(reason: "Mac 本地修复完成", logSuccess: false)
+            await refresh(reason: AppText.current("Mac 本地修复完成", "Guided Mac repair finished"), logSuccess: false)
 
             switch report.status {
             case .healthy:
-                appendLog(.success, "磁盘医生修复完成：\(volume.displayName) 当前未发现阻断项")
+                appendLog(.success, "\(AppText.current("磁盘医生修复完成", "Disk Doctor repair finished")): \(volume.displayName) • \(AppText.current("未发现阻断项", "No blocker found"))")
             case .warning:
-                appendLog(.info, "磁盘医生修复完成：\(volume.displayName) 已降级为提醒状态")
+                appendLog(.info, "\(AppText.current("磁盘医生修复完成", "Disk Doctor repair finished")): \(volume.displayName) • \(AppText.current("当前为提醒状态", "Now in warning state"))")
             case .blocked:
                 lastErrorMessage = report.summary
-                appendLog(.error, "磁盘医生修复后仍存在阻断项：\(volume.displayName)")
+                appendLog(.error, "\(AppText.current("磁盘医生修复后仍存在阻断项", "Blocker remains after Disk Doctor repair")): \(volume.displayName)")
             }
         } catch {
             lastErrorMessage = error.localizedDescription
-            appendLog(.error, "磁盘医生修复失败：\(volume.displayName) - \(error.localizedDescription)")
+            appendLog(.error, "\(AppText.current("磁盘医生修复失败", "Disk Doctor repair failed")): \(volume.displayName) - \(error.localizedDescription)")
         }
     }
 
@@ -379,19 +382,19 @@ final class DiskDashboardModel: ObservableObject {
 
             usageByVolumeID[volume.id] = []
 
-            appendLog(.success, "已请求安全移除 \(volume.displayName)")
-            await refresh(reason: "安全移除完成", logSuccess: false)
+            appendLog(.success, "\(AppText.current("已请求安全移除", "Safe eject requested")) \(volume.displayName)")
+            await refresh(reason: AppText.current("安全移除完成", "Safe eject completed"), logSuccess: false)
         } catch let error as DiskCommandError {
             if case let .volumeBusy(processes) = error {
                 usageByVolumeID[volume.id] = processes
             }
             lastErrorMessage = error.localizedDescription
-            appendLog(.error, "移除失败：\(volume.displayName) - \(error.localizedDescription)")
-            await refresh(reason: "安全移除失败后同步状态", logSuccess: false)
+            appendLog(.error, "\(AppText.current("移除失败", "Eject failed")): \(volume.displayName) - \(error.localizedDescription)")
+            await refresh(reason: AppText.current("安全移除失败后同步状态", "Refresh after safe eject failure"), logSuccess: false)
         } catch {
             lastErrorMessage = error.localizedDescription
-            appendLog(.error, "移除失败：\(volume.displayName) - \(error.localizedDescription)")
-            await refresh(reason: "安全移除失败后同步状态", logSuccess: false)
+            appendLog(.error, "\(AppText.current("移除失败", "Eject failed")): \(volume.displayName) - \(error.localizedDescription)")
+            await refresh(reason: AppText.current("安全移除失败后同步状态", "Refresh after safe eject failure"), logSuccess: false)
         }
     }
 

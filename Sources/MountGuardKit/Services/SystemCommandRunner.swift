@@ -18,7 +18,7 @@ public extension CommandRunning {
     func run(_ executableURL: URL, arguments: [String]) throws -> Data {
         let result = try runResult(executableURL, arguments: arguments)
         guard result.terminationStatus == 0 else {
-            let message = String(data: result.data, encoding: .utf8) ?? "未知错误"
+            let message = String(data: result.data, encoding: .utf8) ?? MountGuardLocalized.text("未知错误", "Unknown error")
             throw CommandError.executionFailed(
                 executable: executableURL.path,
                 arguments: arguments,
@@ -59,11 +59,17 @@ public enum CommandError: LocalizedError, Equatable {
         case let .executionFailed(executable, arguments, status, output):
             let joinedArguments = arguments.joined(separator: " ")
             if output.isEmpty {
-                return "命令执行失败: \(executable) \(joinedArguments) (exit: \(status))"
+                return MountGuardLocalized.text(
+                    "命令执行失败: \(executable) \(joinedArguments) (exit: \(status))",
+                    "Command failed: \(executable) \(joinedArguments) (exit: \(status))"
+                )
             }
-            return "命令执行失败: \(executable) \(joinedArguments) (exit: \(status))\n\(output)"
+            return MountGuardLocalized.text(
+                "命令执行失败: \(executable) \(joinedArguments) (exit: \(status))\n\(output)",
+                "Command failed: \(executable) \(joinedArguments) (exit: \(status))\n\(output)"
+            )
         case .invalidPropertyList:
-            return "系统返回了无法解析的 plist 数据。"
+            return MountGuardLocalized.text("系统返回了无法解析的 plist 数据。", "The system returned an unreadable plist payload.")
         }
     }
 }

@@ -11,6 +11,9 @@ public enum DiskFormatters {
     }
 
     public static func capacitySummary(for volume: DiskVolume) -> String {
-        "已用 \(bytes(volume.usedBytes)) / 总计 \(bytes(volume.totalBytes))"
+        MountGuardLocalized.text(
+            "已用 \(bytes(volume.usedBytes)) / 总计 \(bytes(volume.totalBytes))",
+            "Used \(bytes(volume.usedBytes)) / Total \(bytes(volume.totalBytes))"
+        )
     }
 }

@@ -110,7 +110,7 @@ func doctorBuildsMacRepairPlanForBlockedNTFS() throws {
 
     #expect(report.status == .blocked)
     #expect(report.repairPlan?.canRunOnMac == true)
-    #expect(report.repairPlan?.actionTitle == "在 Mac 上尝试修复")
+    #expect(report.repairPlan?.actionTitle == "Run Guided Repair")
 }
 
 @Test("磁盘医生修复在取消授权时应明确报错")

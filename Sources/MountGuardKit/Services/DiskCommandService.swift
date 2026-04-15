@@ -13,23 +13,23 @@ public enum DiskCommandError: LocalizedError, Equatable {
     public var errorDescription: String? {
         switch self {
         case .notEjectable:
-            return "当前卷不支持安全移除。"
+            return MountGuardLocalized.text("当前卷不支持安全移除。", "This volume does not support safe eject.")
         case .notMounted:
-            return "当前卷尚未挂载。"
+            return MountGuardLocalized.text("当前卷尚未挂载。", "This volume is not mounted.")
         case .enhancedReadWriteUnavailable:
-            return "当前机器没有可用的 NTFS 增强读写通道。"
+            return MountGuardLocalized.text("当前机器没有可用的 NTFS 增强读写通道。", "This Mac does not have an NTFS enhanced RW path available.")
         case .unsupportedFileSystemForEnhancedReadWrite:
-            return "增强读写挂载当前仅用于 NTFS 卷。"
+            return MountGuardLocalized.text("增强读写挂载当前仅用于 NTFS 卷。", "Enhanced RW mount is available for NTFS volumes only.")
         case .enhancedReadWriteRequiresAdministrator:
-            return "NTFS 增强读写挂载需要管理员授权；这不是“完全磁盘访问”权限，而是系统提权。"
+            return MountGuardLocalized.text("NTFS 增强读写挂载需要管理员授权；这不是“完全磁盘访问”权限，而是系统提权。", "Enhanced RW mount needs administrator approval. This is system elevation, not Full Disk Access.")
         case .ntfsUnsafeState:
-            return "这块 NTFS 盘当前处于不安全状态，不能直接切到读写。请先回到 Windows 正常关机并执行磁盘检查，再回到 MountGuard 里尝试。为了保护数据，当前版本不会强行写入。"
+            return MountGuardLocalized.text("这块 NTFS 盘当前处于不安全状态，不能直接切到读写。请先修复后再试。为了保护数据，当前版本不会强行写入。", "This NTFS volume is in an unsafe state and cannot switch to RW yet. Repair it first. MountGuard will not force writes.")
         case let .volumeBusy(processes):
             let details = processes.prefix(5).map(\.summary).joined(separator: ", ")
             if details.isEmpty {
-                return "磁盘仍被占用，暂时无法安全移除。"
+                return MountGuardLocalized.text("磁盘仍被占用，暂时无法安全移除。", "The disk is still busy and cannot be ejected safely yet.")
             }
-            return "磁盘仍被占用，暂时无法安全移除：\(details)"
+            return MountGuardLocalized.text("磁盘仍被占用，暂时无法安全移除：\(details)", "The disk is still busy and cannot be ejected safely yet: \(details)")
         }
     }
 }
@@ -131,7 +131,7 @@ public struct DiskCommandService: Sendable {
         )
 
         if result.terminationStatus != 0 {
-            let output = String(data: result.data, encoding: .utf8) ?? "未知错误"
+            let output = String(data: result.data, encoding: .utf8) ?? MountGuardLocalized.text("未知错误", "Unknown error")
             if output.lowercased().contains("not authorized") || output.contains("User canceled") {
                 throw DiskCommandError.enhancedReadWriteRequiresAdministrator
             }
@@ -183,16 +183,16 @@ public struct DiskCommandService: Sendable {
     public func accessStrategyDescription(for volume: DiskVolume) -> String {
         if volume.fileSystemType.lowercased() == "ntfs" {
             if supportsEnhancedReadWrite(for: volume) {
-                return "系统默认会把 NTFS 挂成只读；当前机器已检测到 ntfs-3g，可尝试增强读写挂载。"
+                return MountGuardLocalized.text("系统默认会把 NTFS 挂成只读；可按需尝试增强读写。", "macOS mounts NTFS read-only by default. Enhanced RW is available if you need it.")
             }
-            return "系统当前会把 NTFS 挂成只读；本机尚未就绪增强读写通道。"
+            return MountGuardLocalized.text("系统当前会把 NTFS 挂成只读；本机尚未就绪增强读写通道。", "macOS will keep this NTFS volume read-only because the enhanced RW path is not ready on this Mac.")
         }
 
         if volume.isWritable {
-            return "当前文件系统已具备系统级可写挂载能力，可直接双向读写。"
+            return MountGuardLocalized.text("当前文件系统已具备系统级可写挂载能力，可直接双向读写。", "This filesystem is writable through the default macOS path.")
         }
 
-        return "当前卷可挂载，但系统未报告可写能力。"
+        return MountGuardLocalized.text("当前卷可挂载，但系统未报告可写能力。", "This volume can be mounted, but macOS does not report it as writable.")
     }
 
     private func canIgnoreUnmountFailure(_ error: CommandError) -> Bool {

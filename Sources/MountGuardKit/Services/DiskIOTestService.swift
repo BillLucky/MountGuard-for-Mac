@@ -12,7 +12,7 @@ public struct DiskIOTestService: Sendable {
                 DiskIOTestStepResult(
                     name: "mount-check",
                     status: .skipped,
-                    detail: "卷当前未挂载，跳过 IO 自测。"
+                    detail: MountGuardLocalized.text("卷当前未挂载，跳过 IO 自测。", "The volume is not mounted, so the IO self-test was skipped.")
                 )
             )
             return DiskIOTestReport(
@@ -31,7 +31,7 @@ public struct DiskIOTestService: Sendable {
                 DiskIOTestStepResult(
                     name: "writable-check",
                     status: .skipped,
-                    detail: "卷当前为只读，已跳过写入型自测以避免无意义失败。"
+                    detail: MountGuardLocalized.text("卷当前为只读，已跳过写入型自测以避免无意义失败。", "The volume is read-only, so write checks were skipped.")
                 )
             )
             return DiskIOTestReport(
@@ -86,7 +86,7 @@ public struct DiskIOTestService: Sendable {
 
         record("create-workspace") {
             try fileManager.createDirectory(at: workspaceURL, withIntermediateDirectories: true)
-            return "已创建工作目录 \(workspaceURL.path)"
+            return MountGuardLocalized.text("已创建工作目录 \(workspaceURL.path)", "Created workspace \(workspaceURL.path)")
         }
 
         let textFileURL = workspaceURL.appendingPathComponent("probe.txt")
@@ -97,7 +97,7 @@ public struct DiskIOTestService: Sendable {
                 throw CocoaError(.fileWriteInapplicableStringEncoding)
             }
             try textData.write(to: textFileURL, options: .atomic)
-            return "已写入文本探针文件"
+            return MountGuardLocalized.text("已写入文本探针文件", "Wrote text probe file")
         }
 
         record("read-text-file") {
@@ -105,7 +105,7 @@ public struct DiskIOTestService: Sendable {
             guard content == textPayload else {
                 throw CocoaError(.fileReadCorruptFile)
             }
-            return "文本读回校验通过"
+            return MountGuardLocalized.text("文本读回校验通过", "Text readback passed")
         }
 
         let emptyFileURL = workspaceURL.appendingPathComponent("empty.bin")
@@ -118,7 +118,7 @@ public struct DiskIOTestService: Sendable {
             guard size == 0 else {
                 throw CocoaError(.fileWriteUnknown)
             }
-            return "空文件边界写入通过"
+            return MountGuardLocalized.text("空文件边界写入通过", "Empty-file boundary check passed")
         }
 
         let sourceDirectory = workspaceURL.appendingPathComponent("copy-source", isDirectory: true)
@@ -139,7 +139,7 @@ public struct DiskIOTestService: Sendable {
             guard fileManager.fileExists(atPath: copiedFile.path) else {
                 throw CocoaError(.fileReadNoSuchFile)
             }
-            return "目录复制通过"
+            return MountGuardLocalized.text("目录复制通过", "Directory copy passed")
         }
 
         let renamedFile = workspaceURL.appendingPathComponent("probe-renamed.txt")
@@ -148,7 +148,7 @@ public struct DiskIOTestService: Sendable {
             guard fileManager.fileExists(atPath: renamedFile.path) else {
                 throw CocoaError(.fileNoSuchFile)
             }
-            return "重命名通过"
+            return MountGuardLocalized.text("重命名通过", "Rename passed")
         }
 
         let binaryFile = workspaceURL.appendingPathComponent("payload.bin")
@@ -159,7 +159,7 @@ public struct DiskIOTestService: Sendable {
             guard data == payload else {
                 throw CocoaError(.fileReadCorruptFile)
             }
-            return "4KB 二进制写读校验通过"
+            return MountGuardLocalized.text("4KB 二进制写读校验通过", "4 KB binary read/write check passed")
         }
 
         do {
@@ -170,7 +170,7 @@ public struct DiskIOTestService: Sendable {
                 DiskIOTestStepResult(
                     name: "cleanup",
                     status: .passed,
-                    detail: "已清理工作目录"
+                    detail: MountGuardLocalized.text("已清理工作目录", "Cleaned up workspace")
                 )
             )
         } catch {

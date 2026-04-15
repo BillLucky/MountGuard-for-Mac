@@ -7,9 +7,9 @@ public enum DiskDoctorError: LocalizedError, Equatable {
     public var errorDescription: String? {
         switch self {
         case .repairUnavailable:
-            return "当前机器没有可用的 NTFS 修复工具，无法在 macOS 本地执行自动修复。"
+            return MountGuardLocalized.text("当前机器没有可用的 NTFS 修复工具，无法在 macOS 本地执行自动修复。", "This Mac does not have an NTFS repair tool available for guided local repair.")
         case .repairRequiresAdministrator:
-            return "磁盘医生修复需要管理员授权；这是系统提权，不是“完全磁盘访问”权限。"
+            return MountGuardLocalized.text("磁盘医生修复需要管理员授权；这是系统提权，不是“完全磁盘访问”权限。", "Disk Doctor repair needs administrator approval. This is system elevation, not Full Disk Access.")
         }
     }
 }
@@ -44,8 +44,8 @@ public struct DiskDoctorService: Sendable {
                 DiskDoctorIssue(
                     id: "healthy",
                     status: .healthy,
-                    title: "未发现阻断项",
-                    detail: "当前没有检测到阻止正常挂载的明显风险信号。"
+                    title: MountGuardLocalized.text("未发现阻断项", "No blocker found"),
+                    detail: MountGuardLocalized.text("当前没有检测到阻止正常挂载的明显风险信号。", "No obvious signal is blocking normal mount right now.")
                 )
             )
         }
@@ -119,9 +119,9 @@ public struct DiskDoctorService: Sendable {
                 DiskDoctorIssue(
                     id: "verify-unavailable",
                     status: .warning,
-                    title: "无法启动系统校验",
+                    title: MountGuardLocalized.text("无法启动系统校验", "Cannot start system verification"),
                     detail: error.localizedDescription,
-                    recommendation: "先确保磁盘保持连接稳定，再重试诊断。"
+                    recommendation: MountGuardLocalized.text("先确保磁盘保持连接稳定，再重试诊断。", "Keep the disk connected and try diagnosis again.")
                 )
             ]
         }
@@ -132,9 +132,9 @@ public struct DiskDoctorService: Sendable {
                 DiskDoctorIssue(
                     id: "verify-unsupported-ntfs",
                     status: .warning,
-                    title: "macOS 原生校验不支持这块 NTFS 卷",
-                    detail: "系统返回 Invalid request，说明这类 NTFS 卷不能依赖 `diskutil verifyVolume` 做有效校验。",
-                    recommendation: "请结合 Windows 的 `chkdsk` 或只读 `ntfsfix -n` 诊断结果来判断是否安全。"
+                    title: MountGuardLocalized.text("macOS 原生校验不支持这块 NTFS 卷", "macOS verification is not meaningful for this NTFS volume"),
+                    detail: MountGuardLocalized.text("系统返回 Invalid request，说明这类 NTFS 卷不能依赖 `diskutil verifyVolume` 做有效校验。", "`diskutil verifyVolume` returned Invalid request, so this NTFS volume cannot rely on native macOS verification."),
+                    recommendation: MountGuardLocalized.text("请结合只读 `ntfsfix -n` 诊断结果来判断是否安全。", "Use the read-only `ntfsfix -n` diagnosis to judge whether RW is safe.")
                 )
             ]
         }
@@ -144,9 +144,9 @@ public struct DiskDoctorService: Sendable {
                 DiskDoctorIssue(
                     id: "verify-failed",
                     status: .warning,
-                    title: "系统校验未完成",
-                    detail: output.isEmpty ? "系统校验失败，但没有返回更多信息。" : output.trimmingCharacters(in: .whitespacesAndNewlines),
-                    recommendation: "先使用只读诊断确认卷状态，再决定是否去 Windows 执行修复。"
+                    title: MountGuardLocalized.text("系统校验未完成", "System verification did not complete"),
+                    detail: output.isEmpty ? MountGuardLocalized.text("系统校验失败，但没有返回更多信息。", "System verification failed without extra details.") : output.trimmingCharacters(in: .whitespacesAndNewlines),
+                    recommendation: MountGuardLocalized.text("先使用只读诊断确认卷状态，再决定下一步修复。", "Use read-only diagnosis first, then decide on the next repair step.")
                 )
             ]
         }
@@ -155,8 +155,8 @@ public struct DiskDoctorService: Sendable {
             DiskDoctorIssue(
                 id: "verify-ok",
                 status: .healthy,
-                title: "系统校验已完成",
-                detail: "macOS 原生校验命令已完成，没有返回阻断信息。"
+                title: MountGuardLocalized.text("系统校验已完成", "System verification completed"),
+                detail: MountGuardLocalized.text("macOS 原生校验命令已完成，没有返回阻断信息。", "Native macOS verification completed without blocker signals.")
             )
         ]
     }
@@ -167,9 +167,9 @@ public struct DiskDoctorService: Sendable {
                 DiskDoctorIssue(
                     id: "ntfsfix-missing",
                     status: .warning,
-                    title: "缺少 NTFS 只读诊断工具",
-                    detail: "当前机器没有检测到 `ntfsfix`，无法进一步分析 NTFS unsafe state。",
-                    recommendation: "安装 ntfs-3g 工具链后再运行磁盘医生。"
+                    title: MountGuardLocalized.text("缺少 NTFS 只读诊断工具", "Missing NTFS diagnosis tool"),
+                    detail: MountGuardLocalized.text("当前机器没有检测到 `ntfsfix`，无法进一步分析 NTFS unsafe state。", "This Mac does not have `ntfsfix`, so Disk Doctor cannot inspect NTFS unsafe state further."),
+                    recommendation: MountGuardLocalized.text("安装 ntfs-3g 工具链后再运行磁盘医生。", "Install the ntfs-3g toolchain and run Disk Doctor again.")
                 )
             ]
         }
@@ -188,9 +188,9 @@ public struct DiskDoctorService: Sendable {
                 DiskDoctorIssue(
                     id: "ntfsfix-unavailable",
                     status: .warning,
-                    title: "NTFS 只读诊断未执行",
+                    title: MountGuardLocalized.text("NTFS 只读诊断未执行", "NTFS read-only diagnosis did not run"),
                     detail: error.localizedDescription,
-                    recommendation: "点击“运行诊断”时允许管理员授权；该诊断不会改写磁盘。"
+                    recommendation: MountGuardLocalized.text("点击“运行诊断”时允许管理员授权；该诊断不会改写磁盘。", "Allow administrator approval when running diagnosis. This check does not write to the disk.")
                 )
             ]
         }
@@ -201,9 +201,9 @@ public struct DiskDoctorService: Sendable {
                 DiskDoctorIssue(
                     id: "ntfsfix-canceled",
                     status: .warning,
-                    title: "管理员授权已取消",
-                    detail: "磁盘医生没有拿到原始设备的只读诊断权限，因此无法继续分析 unsafe state。",
-                    recommendation: "重新运行诊断并允许管理员授权；`ntfsfix -n` 只做检查，不会写盘。"
+                    title: MountGuardLocalized.text("管理员授权已取消", "Administrator approval was canceled"),
+                    detail: MountGuardLocalized.text("磁盘医生没有拿到原始设备的只读诊断权限，因此无法继续分析 unsafe state。", "Disk Doctor could not get read-only device access, so it cannot continue the unsafe-state diagnosis."),
+                    recommendation: MountGuardLocalized.text("重新运行诊断并允许管理员授权；`ntfsfix -n` 只做检查，不会写盘。", "Run diagnosis again and allow administrator approval. `ntfsfix -n` is read-only.")
                 )
             ]
         }
@@ -214,11 +214,11 @@ public struct DiskDoctorService: Sendable {
                 DiskDoctorIssue(
                     id: "ntfsfix-failed",
                     status: .warning,
-                    title: "NTFS 只读诊断未完成",
+                    title: MountGuardLocalized.text("NTFS 只读诊断未完成", "NTFS read-only diagnosis did not complete"),
                     detail: output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        ? "只读诊断命令提前退出，没有返回足够的 NTFS 状态信息。"
+                        ? MountGuardLocalized.text("只读诊断命令提前退出，没有返回足够的 NTFS 状态信息。", "The read-only diagnosis exited early without enough NTFS state details.")
                         : output.trimmingCharacters(in: .whitespacesAndNewlines),
-                    recommendation: "先重新运行只读诊断；如果仍然失败，请检查 ntfs-3g 工具链与管理员授权。"
+                    recommendation: MountGuardLocalized.text("先重新运行只读诊断；如果仍然失败，请检查 ntfs-3g 工具链与管理员授权。", "Run the read-only diagnosis again. If it still fails, check the ntfs-3g toolchain and administrator approval.")
                 )
             ]
         }
@@ -234,9 +234,9 @@ public struct DiskDoctorService: Sendable {
                 DiskDoctorIssue(
                     id: "ntfs-read-only",
                     status: .warning,
-                    title: "当前仍处于只读路径",
-                    detail: "这块 NTFS 卷目前没有进入稳定的读写挂载状态。",
-                    recommendation: "先做只读诊断，确认没有 unsafe state 之后再尝试增强读写挂载。"
+                    title: MountGuardLocalized.text("当前仍处于只读路径", "Still on the read-only path"),
+                    detail: MountGuardLocalized.text("这块 NTFS 卷目前没有进入稳定的读写挂载状态。", "This NTFS volume is not in a stable RW mount state yet."),
+                    recommendation: MountGuardLocalized.text("先做只读诊断，确认没有 unsafe state 之后再尝试增强读写挂载。", "Run read-only diagnosis first, then retry enhanced RW only if no blocker remains.")
                 )
             )
         }
@@ -253,9 +253,9 @@ public struct DiskDoctorService: Sendable {
                 DiskDoctorIssue(
                     id: "ntfs-unsafe-state",
                     status: .blocked,
-                    title: "检测到 Windows 快速启动 / 休眠残留",
-                    detail: "NTFS 报告该分区处于 unsafe state，常见原因是 Windows 没有完整关机、启用了快速启动，或卷仍保留休眠状态。",
-                    recommendation: "回到 Windows 完整启动一次，关闭快速启动，执行正常关机，并运行 `chkdsk /f` 后再回到 MountGuard。当前不要强行切读写。"
+                    title: MountGuardLocalized.text("检测到休眠或快速启动残留", "Hibernation or fast-startup residue detected"),
+                    detail: MountGuardLocalized.text("NTFS 报告该分区处于 unsafe state，常见原因是卷仍带着休眠或快速启动残留。", "NTFS reports an unsafe state, usually caused by hibernation or fast-startup residue on the volume."),
+                    recommendation: MountGuardLocalized.text("先在 MountGuard 中尝试本地修复；如果阻断仍存在，再使用更完整的外部修复方案。", "Try the guided local repair in MountGuard first. If the blocker remains, use a fuller external repair path.")
                 )
             )
         }
@@ -265,9 +265,9 @@ public struct DiskDoctorService: Sendable {
                 DiskDoctorIssue(
                     id: "ntfs-corrupt",
                     status: .blocked,
-                    title: "检测到文件系统需要 Windows 修复",
-                    detail: "只读诊断提示卷存在错误，并明确建议运行 `chkdsk`。",
-                    recommendation: "先在 Windows 上运行 `chkdsk /f` 或图形化磁盘检查，确认修复完成后再尝试增强读写挂载。"
+                    title: MountGuardLocalized.text("检测到文件系统错误", "Filesystem errors detected"),
+                    detail: MountGuardLocalized.text("只读诊断提示卷存在错误，需要先修复再尝试读写。", "The read-only diagnosis reports filesystem errors. Repair the volume before trying RW."),
+                    recommendation: MountGuardLocalized.text("先在 MountGuard 中尝试本地修复；如果修复后仍被阻断，再使用更完整的外部修复方案。", "Try the guided local repair in MountGuard first. If it stays blocked, use a fuller external repair path.")
                 )
             )
         }
@@ -277,8 +277,8 @@ public struct DiskDoctorService: Sendable {
                 DiskDoctorIssue(
                     id: "ntfs-no-blocker",
                     status: .healthy,
-                    title: "未发现 NTFS unsafe blocker",
-                    detail: "只读 NTFS 诊断没有返回明显的 unsafe state / hibernation / chkdsk 阻断信息。"
+                    title: MountGuardLocalized.text("未发现 NTFS 阻断项", "No NTFS blocker found"),
+                    detail: MountGuardLocalized.text("只读 NTFS 诊断没有返回明显阻断信息。", "The read-only NTFS diagnosis did not report an obvious blocker.")
                 )
             )
         }
@@ -320,32 +320,32 @@ public struct DiskDoctorService: Sendable {
         let canRunOnMac = FileManager.default.isExecutableFile(atPath: ntfsfixPath)
         if issueIDs.contains("ntfs-unsafe-state") || issueIDs.contains("ntfs-corrupt") {
             return DiskDoctorRepairPlan(
-                title: "Mac 本地修复计划",
+                title: MountGuardLocalized.text("Mac 本地修复计划", "Guided Mac Repair"),
                 summary: canRunOnMac
-                    ? "MountGuard 可以先在 macOS 上执行一次谨慎的 NTFS 修复，尝试清理常见不一致、重置日志，并重新做只读诊断。"
-                    : "当前机器缺少 `ntfsfix`，MountGuard 还不能在本地自动修复，只能先给出修复路径。",
-                warning: "这一步会真正写入 NTFS 元数据，但它不是 Windows `chkdsk` 的完整替代。MountGuard 只会在你确认后执行，并在执行后重新诊断。",
+                    ? MountGuardLocalized.text("MountGuard 可以先在 macOS 上执行一次谨慎的 NTFS 修复，然后重新诊断。", "MountGuard can try a cautious NTFS repair on macOS, then run diagnosis again.")
+                    : MountGuardLocalized.text("当前机器缺少 `ntfsfix`，MountGuard 还不能在本地自动修复。", "This Mac is missing `ntfsfix`, so guided local repair is not available yet."),
+                warning: MountGuardLocalized.text("这一步会写入 NTFS 元数据，但不是完整的 `chkdsk` 替代。只有在你确认后才会执行。", "This step writes NTFS metadata, but it is not a full `chkdsk` replacement. It runs only after you confirm."),
                 canRunOnMac: canRunOnMac,
-                actionTitle: canRunOnMac ? "在 Mac 上尝试修复" : nil,
+                actionTitle: canRunOnMac ? MountGuardLocalized.text("在 Mac 上尝试修复", "Run Guided Repair") : nil,
                 steps: [
                     DiskDoctorRepairStep(
                         id: "doctor-review",
-                        title: "确认风险说明",
-                        detail: "先看清楚阻断项，再决定是否允许 MountGuard 在本地执行修复。",
+                        title: MountGuardLocalized.text("确认风险说明", "Review the risk"),
+                        detail: MountGuardLocalized.text("先看清楚阻断项，再决定是否允许 MountGuard 在本地执行修复。", "Review the blocker first, then decide whether to let MountGuard repair it locally."),
                         isAutomatic: false
                     ),
                     DiskDoctorRepairStep(
                         id: "doctor-repair",
-                        title: "执行 ntfsfix 修复",
+                        title: MountGuardLocalized.text("执行 ntfsfix 修复", "Run ntfsfix"),
                         detail: canRunOnMac
-                            ? "MountGuard 会请求管理员授权，并调用 `ntfsfix <device>` 修复常见 NTFS 元数据问题。"
-                            : "先安装 ntfs-3g / ntfsfix 工具链，再回到磁盘医生执行本地修复。",
+                            ? MountGuardLocalized.text("MountGuard 会请求管理员授权，并调用 `ntfsfix <device>` 修复常见 NTFS 元数据问题。", "MountGuard asks for administrator approval and runs `ntfsfix <device>` for common NTFS metadata issues.")
+                            : MountGuardLocalized.text("先安装 ntfs-3g / ntfsfix 工具链，再回到磁盘医生执行本地修复。", "Install the ntfs-3g / ntfsfix toolchain first, then come back to Disk Doctor."),
                         isAutomatic: canRunOnMac
                     ),
                     DiskDoctorRepairStep(
                         id: "doctor-verify",
-                        title: "重新诊断并决定是否挂载读写",
-                        detail: "修复结束后，MountGuard 会重新跑诊断；只有阻断项消失后，才建议再次尝试增强读写挂载。",
+                        title: MountGuardLocalized.text("重新诊断并决定是否挂载读写", "Re-check before RW mount"),
+                        detail: MountGuardLocalized.text("修复结束后，MountGuard 会重新跑诊断；只有阻断项消失后，才建议再次尝试增强读写挂载。", "After repair, MountGuard runs diagnosis again and recommends RW remount only if the blocker is gone."),
                         isAutomatic: canRunOnMac
                     ),
                 ]
@@ -358,11 +358,11 @@ public struct DiskDoctorService: Sendable {
     private func summaryText(for status: DiskDoctorStatus) -> String {
         switch status {
         case .healthy:
-            return "当前没有检测到明显的阻断项。"
+            return MountGuardLocalized.text("当前没有检测到明显的阻断项。", "No obvious blocker is detected.")
         case .warning:
-            return "检测到需要注意的风险信号，建议先完成诊断提示再继续。"
+            return MountGuardLocalized.text("检测到需要注意的风险信号，建议先完成诊断提示再继续。", "A warning signal was detected. Review Disk Doctor before you continue.")
         case .blocked:
-            return "检测到阻断读写的风险信号；为了保护数据，当前不建议继续尝试增强读写挂载。"
+            return MountGuardLocalized.text("检测到阻断读写的风险信号；为了保护数据，当前不建议继续尝试增强读写挂载。", "A blocker is preventing safe RW access. MountGuard will keep the safer path.")
         }
     }
 

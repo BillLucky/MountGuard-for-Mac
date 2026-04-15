@@ -1,6 +1,6 @@
 # MountGuard
 
-[English README](./README.md) | [测试指南](./docs/TESTING.md) | [发布指南](./docs/OPEN_SOURCE_RELEASE.md)
+[English README](./README.md) | [开发指南](./docs/DEVELOPMENT.md) | [测试指南](./docs/TESTING.md) | [发布指南](./docs/OPEN_SOURCE_RELEASE.md)
 
 MountGuard 是一个原生 macOS 外接磁盘管理工具，主线只有一条：
 
@@ -115,11 +115,22 @@ MountGuard 调用 ntfsfix
 
 ### 从 DMG 安装
 
-1. 从 GitHub Releases 下载最新 DMG。
-2. 把 `MountGuard.app` 拖进 `Applications`。
-3. 从 `Applications` 启动。
+1. 打开最新的 [GitHub Release](https://github.com/BillLucky/MountGuard-for-Mac/releases/latest)。
+2. 下载最新 DMG。
+3. 把 `MountGuard.app` 拖进 `Applications`。
+4. 从 `Applications` 启动。
 
-如果 macOS 第一次启动时拦截：
+这是普通用户最推荐的使用路径。
+
+### 直接使用 GUI
+
+启动后，典型流程是：
+
+1. 在左侧选中外接磁盘
+2. 使用 `挂载`、`打开`、`磁盘医生`、`安全移除`
+3. 只有在磁盘医生没有阻断时，才继续尝试 `增强读写挂载`
+
+### 如果首次启动被拦截
 
 - 右键 `MountGuard.app`
 - 选择 `打开`
@@ -130,47 +141,32 @@ MountGuard 调用 ntfsfix
 - 当前 release 已经做了 App Bundle 签名，避免包体结构被系统判成损坏
 - 但在完整公证链路接入前，Gatekeeper 仍可能在首次启动时要求你手动确认一次
 
-### 启动 GUI
+## 开发者工具
+
+下面这些命令面向开发、诊断和贡献者工作流，不是普通用户的首选入口。
+
+### 从源码运行 GUI
 
 ```bash
 ./scripts/run-local-app.sh
 ```
 
-### 查看磁盘列表
+### 常用 CLI
 
 ```bash
 swift run --disable-sandbox mountguardctl list
-```
-
-### 运行磁盘医生诊断
-
-```bash
 swift run --disable-sandbox mountguardctl doctor <diskIdentifier>
-```
-
-### 在 Mac 上执行引导式修复
-
-```bash
 swift run --disable-sandbox mountguardctl doctor-repair <diskIdentifier>
 ```
 
-### 查看占用进程
+### 开发者继续看
 
-```bash
-swift run --disable-sandbox mountguardctl ps <diskIdentifier>
-```
+[开发指南](./docs/DEVELOPMENT.md) 里补充了：
 
-### 跑安全自测
-
-```bash
-swift run --disable-sandbox mountguardctl selftest <diskIdentifier>
-```
-
-### 安全移除
-
-```bash
-swift run --disable-sandbox mountguardctl eject <diskIdentifier>
-```
+- 本地环境准备
+- 编译与打包
+- 签名与首次启动
+- release 流程
 
 ## 文件系统策略
 

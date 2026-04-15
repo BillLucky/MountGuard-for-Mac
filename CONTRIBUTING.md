@@ -1,5 +1,7 @@
 # Contributing
 
+[Development Guide](./docs/DEVELOPMENT.md) | [Testing Guide](./docs/TESTING.md) | [Release Guide](./docs/OPEN_SOURCE_RELEASE.md)
+
 ## Principles
 
 - Safety first: never add hidden write paths to external disks.
@@ -9,11 +11,15 @@
 
 ## Local Development
 
+MountGuard is GUI-first for users. Use the CLI and scripts as developer tools, not as the primary product entry point.
+
 ```bash
 swift test --disable-sandbox
 swift run --disable-sandbox mountguardctl list
 ./scripts/run-local-app.sh
 ```
+
+See [Development Guide](./docs/DEVELOPMENT.md) for environment setup, packaging, signing, and release details.
 
 ## Architecture Discipline
 
@@ -35,3 +41,4 @@ swift run --disable-sandbox mountguardctl list
 - Describe disk-safety impact.
 - Include the verification commands you ran.
 - Include screenshots for GUI changes when relevant.
+- Use a precise commit subject that reads like a release note, not a scratch note.
