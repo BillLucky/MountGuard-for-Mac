@@ -22,6 +22,7 @@ MountGuard/
 │   │   ├── MountGuardApp.swift           # SwiftUI App 入口与菜单栏场景
 │   │   ├── Support/
 │   │   │   │   ├── AppIcon.swift             # 运行时 Emoji 应用图标
+│   │   │   ├── AppBuildInfo.swift        # 读取版本号、日期与 commit 的构建信息
 │   │   │   │   └── AppText.swift             # 默认英文、可切中文的文案与语言状态
 │   │   └── Views/
 │   │   │       ├── ContentView.swift         # 主窗口：磁盘列表 + 挂载控制 + 详情 + 占用 + 自测 + 日志
@@ -64,6 +65,7 @@ MountGuard/
 - `mountguardctl` 与 GUI 复用同一套核心服务，命令行和桌面行为保持一致，减少双份逻辑。
 - `DiskCommandService` 不再直通 `eject`，而是先做占用扫描，再执行 `sync -> unmount -> eject`，把安全移除变成可解释的流程。
 - `DiskCommandService` 现在同时承担挂载控制：系统默认挂载/卸载，以及 NTFS 在本机具备 ntfs-3g + macFUSE 条件下的增强读写挂载入口。
+- `DiskInventoryService` 现在要同时参考 `diskutil` 和真实 `mount` 表，避免空挂载点或 FUSE 挂载导致 UI 状态失真。
 - `DiskIOTestService` 把真实磁盘验证限制在 MountGuard 自己创建和清理的隐藏目录里，让自测覆盖 IO 真实路径，又不污染用户数据。
 - 双语能力先收敛到 `AppText`，默认英文、支持切中文，先解决 GUI 与文档的开放性，再决定是否引入完整资源级本地化。
 - 产品定义文档不再进入公开仓库轨道；公开仓库只保留对外可分享的设计与使用资料，避免内部输入直接暴露。
@@ -82,3 +84,4 @@ MountGuard/
 - 2026-04-15：把对外表达升级为默认英文首页 + 中文入口，补截图说明图、DMG 打包脚本与高级能力路线，同时收紧内部文档对外暴露边界。
 - 2026-04-15：继续收口用户文案，新增 `NEXT_PHASE.md`，把后续功能明确延期到下一阶段。
 - 2026-04-15：把产品重心拉回“稳定挂载与读写”，补系统挂载/卸载、自动挂载开关、NTFS 增强读写入口、菜单栏挂载控制与 Emoji 图标打包。
+- 2026-04-15：修复挂载状态真相源，新增 GUI 构建版本信息，并把 NTFS unsafe state 收敛成明确的数据安全阻断提示。

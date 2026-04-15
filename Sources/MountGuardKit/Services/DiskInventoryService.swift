@@ -13,13 +13,22 @@ public struct DiskInventoryService: Sendable {
             arguments: ["list", "-plist", "external"]
         )
         let identifiers = try Self.externalVolumeIdentifiers(from: listData)
+        let mountSnapshots = try currentMountSnapshots()
 
         let volumes = try identifiers.compactMap { identifier -> DiskVolume? in
-            let volume = try fetchVolume(identifier: identifier)
-            guard shouldInclude(volume) else {
-                return nil
+            do {
+                let volume = try fetchVolume(identifier: identifier)
+                let resolvedVolume = Self.resolve(volume: volume, mountSnapshots: mountSnapshots)
+                guard shouldInclude(resolvedVolume) else {
+                    return nil
+                }
+                return resolvedVolume
+            } catch let error as CommandError {
+                if Self.isMissingDiskError(error) {
+                    return nil
+                }
+                throw error
             }
-            return volume
         }
 
         return volumes.sorted {
@@ -35,7 +44,9 @@ public struct DiskInventoryService: Sendable {
             URL(fileURLWithPath: "/usr/sbin/diskutil"),
             arguments: ["info", "-plist", identifier]
         )
-        return try Self.volume(from: infoData)
+        let volume = try Self.volume(from: infoData)
+        let mountSnapshots = try currentMountSnapshots()
+        return Self.resolve(volume: volume, mountSnapshots: mountSnapshots)
     }
 
     private func shouldInclude(_ volume: DiskVolume) -> Bool {
@@ -47,9 +58,15 @@ public struct DiskInventoryService: Sendable {
             return true
         }
 
+        if volume.displayName == volume.deviceIdentifier {
+            return false
+        }
+
         let hiddenContents = [
             "Microsoft Reserved",
             "EFI",
+            "Unknown",
+            "",
         ]
         return !hiddenContents.contains(volume.contentDescription)
     }
@@ -88,7 +105,7 @@ public struct DiskInventoryService: Sendable {
             key: "VolumeName",
             default: stringValue(plist, key: "MediaName", default: deviceIdentifier)
         )
-        let mountPoint = plist["MountPoint"] as? String
+        let mountPoint = normalizedMountPoint(plist["MountPoint"] as? String)
         let fileSystemName = stringValue(
             plist,
             key: "FilesystemName",
@@ -129,6 +146,48 @@ public struct DiskInventoryService: Sendable {
         )
     }
 
+    private func currentMountSnapshots() throws -> [String: MountSnapshot] {
+        let data = try runner.run(URL(fileURLWithPath: "/sbin/mount"), arguments: [])
+        guard let output = String(data: data, encoding: .utf8) else {
+            return [:]
+        }
+
+        var snapshots: [String: MountSnapshot] = [:]
+        for line in output.split(separator: "\n") {
+            let text = String(line)
+            guard text.hasPrefix("/dev/") else { continue }
+            guard let onRange = text.range(of: " on "), let optionsRange = text.range(of: " (", options: .backwards) else {
+                continue
+            }
+
+            let deviceNode = String(text[..<onRange.lowerBound])
+            let mountPoint = String(text[onRange.upperBound..<optionsRange.lowerBound])
+            let optionsPart = String(text[optionsRange.upperBound...]).trimmingCharacters(in: CharacterSet(charactersIn: "()"))
+            let isReadOnly = optionsPart.lowercased().contains("read-only")
+            snapshots[deviceNode] = MountSnapshot(
+                mountPoint: mountPoint,
+                isWritable: !isReadOnly
+            )
+        }
+
+        return snapshots
+    }
+
+    private static func resolve(volume: DiskVolume, mountSnapshots: [String: MountSnapshot]) -> DiskVolume {
+        if let snapshot = mountSnapshots[volume.deviceNode] {
+            return volume.resolved(
+                mountPoint: snapshot.mountPoint,
+                isMounted: true,
+                isWritable: snapshot.isWritable
+            )
+        }
+
+        return volume.resolved(
+            mountPoint: normalizedMountPoint(volume.mountPoint),
+            isMounted: normalizedMountPoint(volume.mountPoint) != nil
+        )
+    }
+
     private static func plistDictionary(from data: Data) throws -> [String: Any] {
         let plist = try PropertyListSerialization.propertyList(from: data, options: [], format: nil)
         guard let dictionary = plist as? [String: Any] else {
@@ -139,6 +198,12 @@ public struct DiskInventoryService: Sendable {
 
     private static func stringValue(_ dictionary: [String: Any], key: String, default defaultValue: String = "") -> String {
         dictionary[key] as? String ?? defaultValue
+    }
+
+    private static func normalizedMountPoint(_ mountPoint: String?) -> String? {
+        guard let mountPoint else { return nil }
+        let trimmed = mountPoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     private static func int64Value(_ dictionary: [String: Any], key: String, fallbackKeys: [String] = []) -> Int64 {
@@ -163,4 +228,17 @@ public struct DiskInventoryService: Sendable {
         }
         return false
     }
+
+    private static func isMissingDiskError(_ error: CommandError) -> Bool {
+        guard case let .executionFailed(_, _, _, output) = error else {
+            return false
+        }
+
+        return output.localizedCaseInsensitiveContains("Could not find disk")
+    }
+}
+
+private struct MountSnapshot {
+    let mountPoint: String
+    let isWritable: Bool
 }

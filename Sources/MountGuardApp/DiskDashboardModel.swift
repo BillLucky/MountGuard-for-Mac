@@ -142,6 +142,7 @@ final class DiskDashboardModel: ObservableObject {
             lastErrorMessage = error.localizedDescription
             let prefix = isAutomatic ? "自动挂载失败" : "挂载失败"
             appendLog(.error, "\(prefix)：\(volume.displayName) - \(error.localizedDescription)")
+            await refresh(reason: "\(prefix) 后同步状态", logSuccess: false)
         }
     }
 
@@ -157,6 +158,7 @@ final class DiskDashboardModel: ObservableObject {
         } catch {
             lastErrorMessage = error.localizedDescription
             appendLog(.error, "增强读写挂载失败：\(volume.displayName) - \(error.localizedDescription)")
+            await refresh(reason: "增强读写挂载失败后同步状态", logSuccess: false)
         }
     }
 
@@ -172,6 +174,7 @@ final class DiskDashboardModel: ObservableObject {
         } catch {
             lastErrorMessage = error.localizedDescription
             appendLog(.error, "卸载失败：\(volume.displayName) - \(error.localizedDescription)")
+            await refresh(reason: "卸载失败后同步状态", logSuccess: false)
         }
     }
 
@@ -183,8 +186,21 @@ final class DiskDashboardModel: ObservableObject {
         }
 
         let url = URL(fileURLWithPath: mountPoint)
-        NSWorkspace.shared.open(url)
-        appendLog(.info, "已在 Finder 中打开 \(volume.displayName)")
+        guard FileManager.default.fileExists(atPath: mountPoint) else {
+            lastErrorMessage = "挂载点已不存在，正在刷新磁盘状态。"
+            appendLog(.error, "打开失败：\(volume.displayName) 的挂载点不存在")
+            Task {
+                await refresh(reason: "打开失败后同步状态", logSuccess: false)
+            }
+            return
+        }
+
+        if NSWorkspace.shared.open(url) {
+            appendLog(.info, "已在 Finder 中打开 \(volume.displayName)")
+        } else {
+            lastErrorMessage = "Finder 未能打开该挂载点。"
+            appendLog(.error, "打开失败：Finder 无法打开 \(volume.displayName)")
+        }
     }
 
     func revealMainWindow() {
@@ -200,6 +216,13 @@ final class DiskDashboardModel: ObservableObject {
     }
 
     func inspectUsage(of volume: DiskVolume) async {
+        guard volume.mountPoint != nil else {
+            lastErrorMessage = "磁盘当前未挂载，无法扫描占用。"
+            appendLog(.error, "占用扫描失败：\(volume.displayName) 当前未挂载")
+            return
+        }
+
+        appendLog(.info, "正在扫描占用：\(volume.displayName)")
         do {
             let commandService = self.commandService
             let processes = try await Task.detached(priority: .userInitiated) {
@@ -215,6 +238,7 @@ final class DiskDashboardModel: ObservableObject {
         } catch {
             lastErrorMessage = error.localizedDescription
             appendLog(.error, "占用扫描失败：\(volume.displayName) - \(error.localizedDescription)")
+            await refresh(reason: "占用扫描失败后同步状态", logSuccess: false)
         }
     }
 
@@ -253,9 +277,11 @@ final class DiskDashboardModel: ObservableObject {
             }
             lastErrorMessage = error.localizedDescription
             appendLog(.error, "移除失败：\(volume.displayName) - \(error.localizedDescription)")
+            await refresh(reason: "安全移除失败后同步状态", logSuccess: false)
         } catch {
             lastErrorMessage = error.localizedDescription
             appendLog(.error, "移除失败：\(volume.displayName) - \(error.localizedDescription)")
+            await refresh(reason: "安全移除失败后同步状态", logSuccess: false)
         }
     }
 

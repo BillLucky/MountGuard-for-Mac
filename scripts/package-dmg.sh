@@ -5,6 +5,8 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
 VERSION="${1:-0.1.0}"
+BUILD_DATE="$(date +%Y.%m.%d)"
+GIT_COMMIT="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 BUILD_ROOT="$ROOT_DIR/.build/mountguard-release"
 APP_ROOT="$BUILD_ROOT/MountGuard.app"
 APP_CONTENTS="$APP_ROOT/Contents"
@@ -56,6 +58,10 @@ cat > "$APP_CONTENTS/Info.plist" <<'PLIST'
     <string>__VERSION__</string>
     <key>CFBundleVersion</key>
     <string>__VERSION__</string>
+    <key>MountGuardBuildDate</key>
+    <string>__BUILD_DATE__</string>
+    <key>MountGuardGitCommit</key>
+    <string>__GIT_COMMIT__</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>NSHighResolutionCapable</key>
@@ -65,6 +71,8 @@ cat > "$APP_CONTENTS/Info.plist" <<'PLIST'
 PLIST
 
 /usr/bin/sed -i '' "s/__VERSION__/${VERSION}/g" "$APP_CONTENTS/Info.plist"
+/usr/bin/sed -i '' "s/__BUILD_DATE__/${BUILD_DATE}/g" "$APP_CONTENTS/Info.plist"
+/usr/bin/sed -i '' "s/__GIT_COMMIT__/${GIT_COMMIT}/g" "$APP_CONTENTS/Info.plist"
 
 cp -R "$APP_ROOT" "$STAGING_DIR/"
 ln -s /Applications "$STAGING_DIR/Applications"

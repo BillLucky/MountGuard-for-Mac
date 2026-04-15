@@ -6,6 +6,8 @@ public enum DiskCommandError: LocalizedError, Equatable {
     case notMounted
     case enhancedReadWriteUnavailable
     case unsupportedFileSystemForEnhancedReadWrite
+    case enhancedReadWriteRequiresAdministrator
+    case ntfsUnsafeState
     case volumeBusy([DiskProcessUsage])
 
     public var errorDescription: String? {
@@ -18,6 +20,10 @@ public enum DiskCommandError: LocalizedError, Equatable {
             return "当前机器没有可用的 NTFS 增强读写通道。"
         case .unsupportedFileSystemForEnhancedReadWrite:
             return "增强读写挂载当前仅用于 NTFS 卷。"
+        case .enhancedReadWriteRequiresAdministrator:
+            return "NTFS 增强读写挂载需要管理员授权；这不是“完全磁盘访问”权限，而是系统提权。"
+        case .ntfsUnsafeState:
+            return "这块 NTFS 盘当前处于不安全状态，不能直接切到读写。请先回到 Windows 正常关机并执行磁盘检查，再回到 MountGuard 里尝试。为了保护数据，当前版本不会强行写入。"
         case let .volumeBusy(processes):
             let details = processes.prefix(5).map(\.summary).joined(separator: ", ")
             if details.isEmpty {
@@ -62,21 +68,29 @@ public struct DiskCommandService: Sendable {
     }
 
     public func mountDefault(_ volume: DiskVolume) throws {
-        _ = try runner.run(
-            URL(fileURLWithPath: "/usr/sbin/diskutil"),
-            arguments: ["mount", volume.deviceIdentifier]
-        )
+        do {
+            _ = try runner.run(
+                URL(fileURLWithPath: "/usr/sbin/diskutil"),
+                arguments: ["mount", volume.deviceIdentifier]
+            )
+        } catch let error as CommandError {
+            if !canIgnoreMountFailure(error) {
+                throw error
+            }
+        }
     }
 
     public func unmount(_ volume: DiskVolume) throws {
-        guard volume.isMounted else {
-            throw DiskCommandError.notMounted
+        do {
+            _ = try runner.run(
+                URL(fileURLWithPath: "/usr/sbin/diskutil"),
+                arguments: ["unmount", volume.deviceIdentifier]
+            )
+        } catch let error as CommandError {
+            if !canIgnoreUnmountFailure(error) {
+                throw error
+            }
         }
-
-        _ = try runner.run(
-            URL(fileURLWithPath: "/usr/sbin/diskutil"),
-            arguments: ["unmount", volume.deviceIdentifier]
-        )
     }
 
     public func remountNTFSReadWrite(_ volume: DiskVolume) throws {
@@ -88,29 +102,40 @@ public struct DiskCommandService: Sendable {
             throw DiskCommandError.enhancedReadWriteUnavailable
         }
 
-        if volume.isMounted {
-            try unmountIgnoringAlreadyUnmounted(volume)
-        }
-
-        let mountPoint = volume.mountPoint ?? "/Volumes/\(sanitizedMountName(for: volume.displayName))"
+        let mountPoint = enhancedMountPoint(for: volume)
         let fileManager = FileManager.default
         try fileManager.createDirectory(
-            at: URL(fileURLWithPath: mountPoint, isDirectory: true),
+            at: mountPoint.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
 
-        _ = try runner.run(
-            URL(fileURLWithPath: ntfs3gPath),
-            arguments: [
-                volume.deviceNode,
-                mountPoint,
-                "-olocal",
-                "-oauto_xattr",
-                "-owindows_names",
-                "-ouid=\(getuid())",
-                "-ogid=\(getgid())",
-            ]
+        let shellScript = [
+            "/usr/sbin/diskutil unmount \(shellQuote(volume.deviceIdentifier)) >/dev/null 2>&1 || true",
+            "/bin/mkdir -p \(shellQuote(mountPoint.path))",
+            "\(shellQuote(ntfs3gPath)) \(shellQuote(volume.deviceNode)) \(shellQuote(mountPoint.path)) -olocal -oauto_xattr -owindows_names -ouid=\(getuid()) -ogid=\(getgid())",
+        ].joined(separator: "; ")
+
+        let script = "do shell script \(appleScriptString(shellScript)) with administrator privileges"
+        let result = try runner.runResult(
+            URL(fileURLWithPath: "/usr/bin/osascript"),
+            arguments: ["-e", script]
         )
+
+        if result.terminationStatus != 0 {
+            let output = String(data: result.data, encoding: .utf8) ?? "未知错误"
+            if output.lowercased().contains("not authorized") || output.contains("User canceled") {
+                throw DiskCommandError.enhancedReadWriteRequiresAdministrator
+            }
+            if isUnsafeNTFSState(output) {
+                throw DiskCommandError.ntfsUnsafeState
+            }
+            throw CommandError.executionFailed(
+                executable: "/usr/bin/osascript",
+                arguments: ["-e", script],
+                status: result.terminationStatus,
+                output: output.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+        }
     }
 
     public func eject(_ volume: DiskVolume) throws {
@@ -123,7 +148,9 @@ public struct DiskCommandService: Sendable {
             throw DiskCommandError.volumeBusy(processes)
         }
 
-        _ = try runner.run(URL(fileURLWithPath: "/usr/bin/sync"), arguments: [])
+        if volume.isMounted {
+            _ = try runner.run(URL(fileURLWithPath: "/bin/sync"), arguments: [])
+        }
 
         if volume.isMounted {
             do {
@@ -165,7 +192,18 @@ public struct DiskCommandService: Sendable {
         }
 
         let normalized = output.lowercased()
-        return normalized.contains("not mounted") || normalized.contains("not currently mounted")
+        return normalized.contains("not mounted")
+            || normalized.contains("not currently mounted")
+            || normalized.contains("already unmounted")
+    }
+
+    private func canIgnoreMountFailure(_ error: CommandError) -> Bool {
+        guard case let .executionFailed(_, _, _, output) = error else {
+            return false
+        }
+
+        let normalized = output.lowercased()
+        return normalized.contains("already mounted")
     }
 
     private func unmountIgnoringAlreadyUnmounted(_ volume: DiskVolume) throws {
@@ -187,9 +225,35 @@ public struct DiskCommandService: Sendable {
         return candidates.first(where: { fileManager.fileExists(atPath: $0) })
     }
 
+    private func enhancedMountPoint(for volume: DiskVolume) -> URL {
+        let root = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("MountGuardVolumes", isDirectory: true)
+        return root.appendingPathComponent(sanitizedMountName(for: volume.displayName), isDirectory: true)
+    }
+
     private func sanitizedMountName(for name: String) -> String {
         let invalidCharacters = CharacterSet(charactersIn: "/:")
         let parts = name.components(separatedBy: invalidCharacters)
         return parts.joined(separator: "-")
+    }
+
+    private func shellQuote(_ value: String) -> String {
+        let escaped = value.replacingOccurrences(of: "'", with: "'\\''")
+        return "'\(escaped)'"
+    }
+
+    private func appleScriptString(_ value: String) -> String {
+        let escaped = value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        return "\"\(escaped)\""
+    }
+
+    private func isUnsafeNTFSState(_ output: String) -> Bool {
+        let normalized = output.lowercased()
+        return normalized.contains("unsafe state")
+            || normalized.contains("fast restarting")
+            || normalized.contains("hibernation")
+            || normalized.contains("read-only with the 'ro' mount option")
     }
 }

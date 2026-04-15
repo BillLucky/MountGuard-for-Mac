@@ -84,4 +84,31 @@ public struct DiskVolume: Codable, Equatable, Identifiable, Sendable {
     public var writeStatusText: String {
         isWritable ? "可写" : "只读"
     }
+
+    public func resolved(
+        mountPoint: String?,
+        isMounted: Bool,
+        isWritable: Bool? = nil
+    ) -> DiskVolume {
+        DiskVolume(
+            deviceIdentifier: deviceIdentifier,
+            deviceNode: deviceNode,
+            wholeDiskIdentifier: wholeDiskIdentifier,
+            diskUUID: diskUUID,
+            volumeName: volumeName,
+            mountPoint: mountPoint,
+            fileSystemName: fileSystemName,
+            fileSystemType: fileSystemType,
+            busProtocol: busProtocol,
+            contentDescription: contentDescription,
+            totalBytes: totalBytes,
+            freeBytes: freeBytes,
+            isMounted: isMounted,
+            isWritable: isWritable ?? self.isWritable,
+            isExternal: isExternal,
+            isEjectable: isEjectable,
+            isBootable: isBootable,
+            smartStatus: smartStatus
+        )
+    }
 }

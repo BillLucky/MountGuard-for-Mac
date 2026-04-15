@@ -251,6 +251,10 @@ private struct DiskDetailView: View {
                     }
                     .disabled(!model.supportsEnhancedReadWrite(for: volume))
 
+                    Text(AppText.current("增强读写挂载会弹出一次管理员授权，并把 NTFS 挂到你的家目录 `~/MountGuardVolumes/磁盘名` 下。它不是“完全磁盘访问”权限。", "Enhanced RW Mount prompts once for administrator approval and mounts NTFS under `~/MountGuardVolumes/<disk-name>`. This is not Full Disk Access.", language: appLanguage))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
                     if !model.supportsEnhancedReadWrite(for: volume) {
                         Text(AppText.current("当前机器缺少可用的 ntfs-3g / macFUSE 读写链路，仍可走系统只读挂载。", "This Mac does not currently have a usable ntfs-3g / macFUSE RW path, so MountGuard falls back to system read-only mount.", language: appLanguage))
                             .font(.caption)
@@ -450,11 +454,14 @@ private struct FooterBar: View {
     var body: some View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(AppText.current("BillLucky 用爱创作，为了让拔盘这件小事更安心。", "Made with love by BillLucky so removable disks feel a little less scary.", language: appLanguage))
+                Text(AppText.current("Bill 用爱创作🩷，让Mac 读写移动硬盘更加省心", "Made with love by Bill making reading and writing to external drives on your Mac completely hassle-free.", language: appLanguage))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Link("github.com/BillLucky/MountGuard-for-Mac", destination: URL(string: "https://github.com/BillLucky/MountGuard-for-Mac")!)
                     .font(.caption)
+                Text(AppBuildInfo.versionText)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
             Spacer()
             Toggle(
