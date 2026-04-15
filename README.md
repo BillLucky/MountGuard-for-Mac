@@ -2,60 +2,50 @@
 
 [中文说明](./README.zh-CN.md) | [Testing Guide](./docs/TESTING.md) | [Release Guide](./docs/OPEN_SOURCE_RELEASE.md)
 
-MountGuard helps Mac users work with external disks more calmly.
+MountGuard makes external disks feel simpler, safer, and less annoying on macOS.
 
-It shows what is mounted, what is blocking an eject, what is safe to do next, and how to test the disk path without touching user files outside a MountGuard-owned workspace.
+## What Problem It Solves
 
-## Why It Exists
+- You are not sure whether a disk is mounted, writable, or safe to eject.
+- macOS says the disk is busy, but does not tell you what is holding it.
+- You want a quick health check without risking your real files.
+- You just want a small native tool that helps you get back to work.
 
-Plugging in an external disk should feel boring and safe.
+## What Value You Get
 
-In reality, it often feels like this:
+- See your external disks clearly in one place
+- Find blocking processes before unplugging
+- Eject in a safer order: `sync -> unmount -> eject`
+- Run a self-test that only touches `.mountguard-selftest`
+- Use the app in English or Chinese
 
-- the disk mounts but you are not sure whether it is writable
-- you copy files for a long time and do not know what is safe to retry
-- macOS says the disk is busy but does not tell you who is holding it
-- you want a quick confidence check without risking your own folders
+## Start Here
 
-MountGuard starts by solving those problems well. Then it grows into higher-level workflows like verified sync and resumable backup.
-
-## What You Can Do Today
-
-- See external volumes in a native macOS window and menu bar
-- Open the mounted disk in Finder
-- Inspect filesystem, bus, SMART status, free space, and mount mode
-- Scan for blocking processes before ejecting
-- Run a safer eject flow: `sync -> unmount -> eject`
-- Run a disk self-test that only touches `.mountguard-selftest`
-- Switch the GUI between English and Chinese
-
-## Quick Start
-
-### 1. Launch the app
+### Launch the app
 
 ```bash
 ./scripts/run-local-app.sh
 ```
 
-### 2. Inspect disks from CLI
+### List disks
 
 ```bash
 swift run --disable-sandbox mountguardctl list
 ```
 
-### 3. See what is blocking a disk
+### Check what is blocking a disk
 
 ```bash
 swift run --disable-sandbox mountguardctl ps disk4s2
 ```
 
-### 4. Run the safe self-test
+### Run the safe self-test
 
 ```bash
 swift run --disable-sandbox mountguardctl selftest disk4s2
 ```
 
-### 5. Eject only when you really mean it
+### Eject only when you really mean it
 
 ```bash
 swift run --disable-sandbox mountguardctl eject disk4s2
@@ -75,7 +65,7 @@ swift run --disable-sandbox mountguardctl eject disk4s2
 
 ![MountGuard self-test workflow](./assets/screenshots/self-test.svg)
 
-## A Friendly Mental Model
+## How To Think About It
 
 - `Open`: jump into the disk in Finder
 - `Scan Usage`: ask who is still holding the disk
@@ -105,7 +95,7 @@ swift run --disable-sandbox mountguardctl selftest <diskIdentifier>
 swift run --disable-sandbox mountguardctl eject <diskIdentifier>
 ```
 
-## Safety Promises
+## Why It Feels Safe
 
 - No automatic formatting
 - No automatic `fsck`
@@ -114,25 +104,25 @@ swift run --disable-sandbox mountguardctl eject <diskIdentifier>
 - No write self-test on read-only volumes
 - No writes outside MountGuard-owned test workspace
 
-## Current Validation
+## Current Status
 
 - `swift test --disable-sandbox` passes
 - The current debug disk `/Volumes/Backup` is correctly identified as `NTFS` and `read-only`
 - Real self-test on that disk is intentionally skipped instead of forcing unsafe writes
 - Busy-process scan has been switched to a filesystem-level strategy so large disks stay responsive
 
-## Looking Ahead
+## Technical Details
 
-MountGuard is not meant to stop at “a better eject button”.
+- Native macOS stack: `SwiftUI + AppKit + DiskArbitration + diskutil`
+- Menu bar app + CLI with shared system services
+- Busy-process scan before eject
+- English-first GUI with Chinese toggle
 
-Planned higher-level capabilities include:
+## Later
 
-- resumable copy and retry
-- verified incremental sync
-- checksum-aware backup workflows
-- copy health reporting for large transfers
+This phase stops here on purpose.
 
-See [Advanced Capabilities](./docs/ADVANCED_CAPABILITIES.md) for the product direction.
+Future ideas like verified sync, resumable copy, and backup workflows are tracked in [Advanced Capabilities](./docs/ADVANCED_CAPABILITIES.md) and [Next Phase](./docs/NEXT_PHASE.md).
 
 ## For Contributors
 
