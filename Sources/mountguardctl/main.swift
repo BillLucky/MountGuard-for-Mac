@@ -8,6 +8,7 @@ struct MountGuardCLI {
         let inventoryService = DiskInventoryService()
         let commandService = DiskCommandService()
         let ioTestService = DiskIOTestService()
+        let doctorService = DiskDoctorService()
 
         do {
             switch arguments.first {
@@ -58,6 +59,37 @@ struct MountGuardCLI {
                 for step in report.steps {
                     print("- \(step.name): \(step.status.rawValue) - \(step.detail)")
                 }
+            case "doctor":
+                guard let identifier = arguments.dropFirst().first else {
+                    printHelpAndExit()
+                }
+
+                let volume = try inventoryService.fetchVolume(identifier: identifier)
+                let report = try doctorService.diagnose(volume)
+                print("Disk Doctor: \(volume.displayName) [\(report.status.rawValue)]")
+                print(report.summary)
+                for issue in report.issues {
+                    print("- \(issue.title): \(issue.detail)")
+                    if let recommendation = issue.recommendation {
+                        print("  建议: \(recommendation)")
+                    }
+                }
+                if let repairPlan = report.repairPlan {
+                    print("Repair Plan: \(repairPlan.title)")
+                    print(repairPlan.summary)
+                    for step in repairPlan.steps {
+                        print("  - \(step.title): \(step.detail)")
+                    }
+                }
+            case "doctor-repair":
+                guard let identifier = arguments.dropFirst().first else {
+                    printHelpAndExit()
+                }
+
+                let volume = try inventoryService.fetchVolume(identifier: identifier)
+                let report = try doctorService.repair(volume)
+                print("Disk Doctor Repair: \(volume.displayName) [\(report.status.rawValue)]")
+                print(report.summary)
             default:
                 printHelpAndExit()
             }
@@ -77,6 +109,8 @@ struct MountGuardCLI {
               mountguardctl eject <diskIdentifier>
               mountguardctl ps <diskIdentifier>
               mountguardctl selftest <diskIdentifier>
+              mountguardctl doctor <diskIdentifier>
+              mountguardctl doctor-repair <diskIdentifier>
             """
         )
         exit(0)

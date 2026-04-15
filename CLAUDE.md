@@ -6,6 +6,7 @@ MountGuard/
 ├── Sources/
 │   ├── MountGuardKit/
 │   │   ├── Models/
+│   │   │   ├── DiskDoctorReport.swift    # 磁盘医生的风险等级、发现项与修复建议
 │   │   │   ├── DiskFormatters.swift      # 容量与状态的轻量格式化工具
 │   │   │   ├── DiskIOTestReport.swift    # 磁盘自测报告与步骤结果
 │   │   │   ├── DiskProcessUsage.swift    # 磁盘占用进程的结构化模型
@@ -13,6 +14,7 @@ MountGuard/
 │   │   └── Services/
 │   │       ├── DiskArbitrationMonitor.swift  # 基于 DiskArbitration 的事件监听
 │   │       ├── DiskCommandService.swift      # 安全移除编排：占用校验、sync、unmount、eject
+│   │       ├── DiskDoctorService.swift       # 只读磁盘医生：分析 NTFS unsafe 与修复路径
 │   │       ├── DiskIOTestService.swift       # 仅操作自建工作区的 IO 自测服务
 │   │       ├── DiskInventoryService.swift    # 解析 diskutil plist，构建卷列表
 │   │       ├── DiskUsageInspector.swift      # 基于 lsof 的占用进程扫描
@@ -41,6 +43,7 @@ MountGuard/
 │   ├── PRIVACY.md                        # 本地优先与无遥测边界说明
 │   ├── RELEASE_NOTES_v0.1.0.md           # 首个公开版本的中英双语发布说明
 │   ├── RELEASE_NOTES_v0.1.1.md           # 本地正式使用收口版的双语发布说明
+│   ├── RELEASE_NOTES_v0.1.3.md           # 强化挂载安全、NTFS 诊断与 Mac 本地修复的发布说明
 │   └── TESTING.md                        # 自动化与真实磁盘测试策略
 ├── scripts/
 │   ├── generate-emoji-icon.swift         # 生成 DMG 与 App Bundle 用 Emoji 图标
@@ -66,6 +69,8 @@ MountGuard/
 - `DiskCommandService` 不再直通 `eject`，而是先做占用扫描，再执行 `sync -> unmount -> eject`，把安全移除变成可解释的流程。
 - `DiskCommandService` 现在同时承担挂载控制：系统默认挂载/卸载，以及 NTFS 在本机具备 ntfs-3g + macFUSE 条件下的增强读写挂载入口。
 - `DiskInventoryService` 现在要同时参考 `diskutil` 和真实 `mount` 表，避免空挂载点或 FUSE 挂载导致 UI 状态失真。
+- `DiskDoctorService` 只做只读诊断，不写盘；重点把 NTFS unsafe、Windows 快速启动/休眠残留、原生校验不支持翻译成可操作建议。
+- `DiskDoctorService` 现在同时能生成修复计划，并在用户确认后调用 `ntfsfix` 做谨慎的 Mac 本地修复；它仍然不是 `chkdsk` 的替代品。
 - `DiskIOTestService` 把真实磁盘验证限制在 MountGuard 自己创建和清理的隐藏目录里，让自测覆盖 IO 真实路径，又不污染用户数据。
 - 双语能力先收敛到 `AppText`，默认英文、支持切中文，先解决 GUI 与文档的开放性，再决定是否引入完整资源级本地化。
 - 产品定义文档不再进入公开仓库轨道；公开仓库只保留对外可分享的设计与使用资料，避免内部输入直接暴露。
@@ -85,3 +90,5 @@ MountGuard/
 - 2026-04-15：继续收口用户文案，新增 `NEXT_PHASE.md`，把后续功能明确延期到下一阶段。
 - 2026-04-15：把产品重心拉回“稳定挂载与读写”，补系统挂载/卸载、自动挂载开关、NTFS 增强读写入口、菜单栏挂载控制与 Emoji 图标打包。
 - 2026-04-15：修复挂载状态真相源，新增 GUI 构建版本信息，并把 NTFS unsafe state 收敛成明确的数据安全阻断提示。
+- 2026-04-15：新增“磁盘医生”只读诊断骨架，把 NTFS unsafe root cause、原生校验不支持与 Windows 修复建议收进 GUI。
+- 2026-04-15：把“磁盘医生”扩展为“诊断 + 修复计划 + Mac 本地修复”链路，补 CLI doctor/doctor-repair、发布文案刷新和私有规划文件移出仓库轨道。

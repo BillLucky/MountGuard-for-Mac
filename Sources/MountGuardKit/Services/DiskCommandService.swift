@@ -39,6 +39,7 @@ public struct DiskCommandService: Sendable {
     private let usageInspector: DiskUsageInspector
     private let ntfs3gPath: String?
     private let macFusePath: String?
+    private let ntfsfixPath: String?
 
     public init(
         runner: any CommandRunning = ProcessCommandRunner(),
@@ -55,6 +56,12 @@ public struct DiskCommandService: Sendable {
         self.macFusePath = Self.firstExistingPath(
             candidates: [
                 "/Library/Filesystems/macfuse.fs/Contents/Resources/mount_macfuse",
+            ]
+        )
+        self.ntfsfixPath = Self.firstExistingPath(
+            candidates: [
+                "/opt/homebrew/bin/ntfsfix",
+                "/usr/local/bin/ntfsfix",
             ]
         )
     }
@@ -101,6 +108,8 @@ public struct DiskCommandService: Sendable {
         guard let ntfs3gPath, macFusePath != nil else {
             throw DiskCommandError.enhancedReadWriteUnavailable
         }
+
+        try ensureSafeNTFSReadWriteAttempt(volume)
 
         let mountPoint = enhancedMountPoint(for: volume)
         let fileManager = FileManager.default
@@ -249,11 +258,45 @@ public struct DiskCommandService: Sendable {
         return "\"\(escaped)\""
     }
 
+    private func ensureSafeNTFSReadWriteAttempt(_ volume: DiskVolume) throws {
+        guard let ntfsfixPath else {
+            return
+        }
+
+        let shellScript = "\(shellQuote(ntfsfixPath)) -n \(shellQuote(volume.deviceNode))"
+        let script = "do shell script \(appleScriptString(shellScript)) with administrator privileges"
+        let result = try runner.runResult(
+            URL(fileURLWithPath: "/usr/bin/osascript"),
+            arguments: ["-e", script]
+        )
+
+        let output = String(data: result.data, encoding: .utf8) ?? ""
+        if DiskDoctorService.isAuthorizationFailure(output) {
+            throw DiskCommandError.enhancedReadWriteRequiresAdministrator
+        }
+
+        let issues = DiskDoctorService.parseNTFSNoActionOutput(output)
+        if issues.contains(where: { $0.status == .blocked }) {
+            throw DiskCommandError.ntfsUnsafeState
+        }
+
+        if result.terminationStatus != 0 {
+            throw CommandError.executionFailed(
+                executable: "/usr/bin/osascript",
+                arguments: ["-e", script],
+                status: result.terminationStatus,
+                output: output.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+        }
+    }
+
     private func isUnsafeNTFSState(_ output: String) -> Bool {
         let normalized = output.lowercased()
         return normalized.contains("unsafe state")
             || normalized.contains("fast restarting")
             || normalized.contains("hibernation")
             || normalized.contains("read-only with the 'ro' mount option")
+            || normalized.contains("volume is corrupt")
+            || normalized.contains("run chkdsk")
     }
 }

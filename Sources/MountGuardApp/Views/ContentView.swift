@@ -64,6 +64,29 @@ struct ContentView: View {
         } message: {
             Text(model.lastErrorMessage ?? "")
         }
+        .alert(
+            item: Binding(
+                get: { model.pendingDoctorRepairConfirmation },
+                set: { prompt in
+                    if prompt == nil {
+                        model.dismissDoctorRepairConfirmation()
+                    }
+                }
+            )
+        ) { prompt in
+            Alert(
+                title: Text(AppText.current("确认执行修复", "Confirm Repair", language: appLanguage)),
+                message: Text(prompt.message),
+                primaryButton: .destructive(Text(AppText.current("继续修复", "Run Repair", language: appLanguage))) {
+                    Task {
+                        await model.confirmDoctorRepair()
+                    }
+                },
+                secondaryButton: .cancel(Text(AppText.current("取消", "Cancel", language: appLanguage))) {
+                    model.dismissDoctorRepairConfirmation()
+                }
+            )
+        }
     }
 }
 
@@ -114,6 +137,9 @@ private struct DiskDetailView: View {
                 header
                 GroupBox(AppText.current("挂载控制", "Mount Controls", language: appLanguage)) {
                     mountControlView
+                }
+                GroupBox(AppText.current("磁盘医生", "Disk Doctor", language: appLanguage)) {
+                    diskDoctorView
                 }
                 GroupBox(AppText.current("核心信息", "Overview", language: appLanguage)) {
                     detailGrid
@@ -249,11 +275,17 @@ private struct DiskDetailView: View {
                     } label: {
                         Label(AppText.current("增强读写挂载", "Enhanced RW Mount", language: appLanguage), systemImage: "arrow.triangle.2.circlepath.circle")
                     }
-                    .disabled(!model.supportsEnhancedReadWrite(for: volume))
+                    .disabled(!model.supportsEnhancedReadWrite(for: volume) || model.shouldBlockEnhancedReadWrite(for: volume))
 
                     Text(AppText.current("增强读写挂载会弹出一次管理员授权，并把 NTFS 挂到你的家目录 `~/MountGuardVolumes/磁盘名` 下。它不是“完全磁盘访问”权限。", "Enhanced RW Mount prompts once for administrator approval and mounts NTFS under `~/MountGuardVolumes/<disk-name>`. This is not Full Disk Access.", language: appLanguage))
                         .font(.caption)
                         .foregroundStyle(.secondary)
+
+                    if model.shouldBlockEnhancedReadWrite(for: volume) {
+                        Text(AppText.current("磁盘医生最近一次诊断已经判定当前不适合继续尝试读写挂载。请先按诊断建议完成修复。", "The latest Disk Doctor report blocks RW remount for safety. Follow the recommended repair steps first.", language: appLanguage))
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
 
                     if !model.supportsEnhancedReadWrite(for: volume) {
                         Text(AppText.current("当前机器缺少可用的 ntfs-3g / macFUSE 读写链路，仍可走系统只读挂载。", "This Mac does not currently have a usable ntfs-3g / macFUSE RW path, so MountGuard falls back to system read-only mount.", language: appLanguage))
@@ -264,6 +296,116 @@ private struct DiskDetailView: View {
             } else {
                 Text(AppText.current("对 exFAT、APFS、HFS+ 等系统可写文件系统，MountGuard 优先使用系统默认挂载能力，保证稳定和传输效率。", "For exFAT, APFS, HFS+, and other system-writable filesystems, MountGuard prefers the default macOS mount path for stability and throughput.", language: appLanguage))
                     .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 8)
+    }
+
+    private var diskDoctorView: some View {
+        let report = model.doctorReport(for: volume)
+
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Button {
+                    Task {
+                        await model.runDoctorDiagnosis(on: volume)
+                    }
+                } label: {
+                    Label(AppText.current("运行只读诊断", "Run Read-Only Diagnosis", language: appLanguage), systemImage: "stethoscope")
+                }
+
+                if let report {
+                    Text(doctorStatusText(for: report.status))
+                        .font(.caption)
+                        .foregroundStyle(doctorStatusColor(for: report.status))
+                }
+            }
+
+            Text(AppText.current("磁盘医生会先做只读诊断；如果检测到常见 NTFS 阻断项，并且本机具备 `ntfsfix`，它还能在你确认后尝试一次 Mac 本地修复。", "Disk Doctor starts with read-only diagnosis. If it finds common NTFS blockers and this Mac has `ntfsfix`, it can attempt one guided local repair after you confirm.", language: appLanguage))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if let report {
+                Text(report.summary)
+                    .font(.subheadline)
+
+                Text(report.generatedAt.formatted(date: .numeric, time: .shortened))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                ForEach(report.issues) { issue in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 8) {
+                            Image(systemName: doctorIconName(for: issue.status))
+                                .foregroundStyle(doctorStatusColor(for: issue.status))
+                            Text(issue.title)
+                                .font(.headline)
+                        }
+                        Text(issue.detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        if let recommendation = issue.recommendation {
+                            Text(recommendation)
+                                .font(.caption)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 2)
+                }
+
+                if let repairPlan = report.repairPlan {
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "cross.case")
+                                .foregroundStyle(.blue)
+                            Text(repairPlan.title)
+                                .font(.headline)
+                        }
+
+                        Text(repairPlan.summary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Text(repairPlan.warning)
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+
+                        ForEach(repairPlan.steps) { step in
+                            HStack(alignment: .top, spacing: 10) {
+                                Image(systemName: step.isAutomatic ? "gearshape.2" : "list.bullet.clipboard")
+                                    .foregroundStyle(step.isAutomatic ? .blue : .secondary)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(step.title)
+                                        .font(.subheadline)
+                                    Text(step.detail)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+
+                        if let actionTitle = repairPlan.actionTitle {
+                            Button {
+                                Task {
+                                    await model.requestDoctorRepair(on: volume)
+                                }
+                            } label: {
+                                Label(AppText.current(actionTitle, actionTitle, language: appLanguage), systemImage: "cross.vial")
+                            }
+                        } else {
+                            Text(AppText.current("当前机器还不能自动修复，请先按上面的步骤准备本机环境。", "Automatic repair is not available on this Mac yet. Prepare the environment first, then come back to Disk Doctor.", language: appLanguage))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            } else {
+                Text(AppText.current("先运行一次只读诊断，再决定是否尝试增强读写挂载。", "Run a read-only diagnosis first, then decide whether RW remount is safe to attempt.", language: appLanguage))
                     .foregroundStyle(.secondary)
             }
         }
@@ -420,6 +562,39 @@ private struct DiskDetailView: View {
         }
     }
 
+    private func doctorStatusText(for status: DiskDoctorStatus) -> String {
+        switch status {
+        case .healthy:
+            return AppText.current("健康", "Healthy", language: appLanguage)
+        case .warning:
+            return AppText.current("注意", "Warning", language: appLanguage)
+        case .blocked:
+            return AppText.current("阻断", "Blocked", language: appLanguage)
+        }
+    }
+
+    private func doctorStatusColor(for status: DiskDoctorStatus) -> Color {
+        switch status {
+        case .healthy:
+            return .green
+        case .warning:
+            return .orange
+        case .blocked:
+            return .red
+        }
+    }
+
+    private func doctorIconName(for status: DiskDoctorStatus) -> String {
+        switch status {
+        case .healthy:
+            return "checkmark.shield"
+        case .warning:
+            return "exclamationmark.shield"
+        case .blocked:
+            return "xmark.shield"
+        }
+    }
+
     private func statusColor(for status: DiskIOTestStatus) -> Color {
         switch status {
         case .passed:
@@ -454,10 +629,10 @@ private struct FooterBar: View {
     var body: some View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(AppText.current("Bill 用爱创作🩷，让Mac 读写移动硬盘更加省心", "Made with love by Bill making reading and writing to external drives on your Mac completely hassle-free.", language: appLanguage))
+                Text(AppText.current("Bill 用爱创作🩷，让Mac 读写移动硬盘更加省心", "Made with love by Bill Make Reading and Writing More Enjoyable", language: appLanguage))
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Link("github.com/BillLucky/MountGuard-for-Mac", destination: URL(string: "https://github.com/BillLucky/MountGuard-for-Mac")!)
+                Link("Github", destination: URL(string: "https://github.com/BillLucky/MountGuard-for-Mac")!)
                     .font(.caption)
                 Text(AppBuildInfo.versionText)
                     .font(.caption2)

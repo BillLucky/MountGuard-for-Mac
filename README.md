@@ -2,33 +2,113 @@
 
 [中文说明](./README.zh-CN.md) | [Testing Guide](./docs/TESTING.md) | [Release Guide](./docs/OPEN_SOURCE_RELEASE.md)
 
-MountGuard is a native macOS disk manager focused on one thing first: stable mounting and reliable two-way file transfer.
+MountGuard is a native macOS app for external disks.
 
-## Core Promise
+Its job is simple:
 
-- Plug in a disk and get it into a usable state quickly.
-- See whether it is mounted, writable, and ready for large file copy.
-- Mount or unmount directly from the GUI and menu bar.
-- Keep the workflow stable when multiple external disks are connected.
-- Fall back to safer system behavior instead of guessing.
+- get a disk mounted quickly
+- tell you whether it is really writable
+- keep NTFS handling conservative instead of reckless
+- help you diagnose and repair common blockers before you try risky writes
+- let you eject cleanly after copying data
 
-## Why People Use It
+## What It Solves
 
-- Faster disk setup for real work
-- Clear mount state and write capability
-- Safer eject path after copying data
-- Better visibility when something is still blocking the disk
-- English / Chinese GUI for day-to-day use
+Many disk tools stop at "the disk exists".
 
-## Mounting Experience
+MountGuard goes one step further:
 
-- New disks can be auto-mounted when they appear
-- Unmounted disks can be mounted manually from the main window or menu bar
-- Mounted disks can be unmounted without leaving the app
-- NTFS volumes clearly show whether they are system read-only or eligible for enhanced RW remount
-- exFAT, APFS, and HFS+ stay on the default macOS path for stability and throughput
+- shows whether the disk is mounted, writable, and safe to use
+- gives you one place for mount, open, scan, self-test, doctor, and eject
+- blocks unsafe NTFS read/write remount attempts when the diagnosis says "not yet"
+- offers a guided Mac-side repair path for common NTFS blockers using `ntfsfix`
+- keeps the main workflow fast for exFAT, APFS, and HFS+
 
-## Start Here
+## Main Workflow
+
+```text
+Plug In Disk
+    |
+    v
+MountGuard refreshes state
+    |
+    +--> Mounted + Writable ----------> Open in Finder ----------> Copy files
+    |
+    +--> Mounted + Read-only ---------> Run Disk Doctor ---------> Repair / stay read-only
+    |
+    +--> Unmounted -------------------> Mount from GUI/menu bar --> Retry
+```
+
+## Why It Feels Safe
+
+- No automatic formatting
+- No silent process killing
+- No fake "writable" label when the path is still blocked
+- No write self-test on read-only volumes
+- No writes outside the MountGuard-owned self-test workspace
+- No NTFS enhanced RW attempt after Disk Doctor marks the volume as blocked
+
+## Disk Doctor
+
+Disk Doctor starts with a read-only diagnosis.
+
+For NTFS volumes it can identify:
+
+- unsafe state caused by Windows fast startup / hibernation residue
+- common NTFS corruption signals that require repair before RW remount
+- when macOS native verification is not meaningful for this volume
+- whether this Mac is ready to run a guided `ntfsfix` repair locally
+
+If the issue is one of the common mount blockers, MountGuard can offer:
+
+```text
+Read-only diagnosis
+    |
+    v
+Show repair plan
+    |
+    v
+Ask for user confirmation
+    |
+    v
+Run ntfsfix on macOS
+    |
+    v
+Re-diagnose before suggesting RW remount
+```
+
+Important:
+
+- MountGuard can automate a cautious `ntfsfix`-based repair on macOS
+- this is useful for common NTFS mount blockers
+- it is not a full replacement for Windows `chkdsk`
+- if the disk still reports blocked after repair, MountGuard keeps the safer state
+
+## UI Preview
+
+Real screenshots can be added later. For now, here is the product shape:
+
+```text
++---------------------------------------------------------------+
+| MountGuard                                                    |
+| Disks                         | Backup Drive                  |
+|------------------------------|-------------------------------|
+| Backup Drive  NTFS  Read Only | Mount Controls               |
+| Media SSD     exFAT Writable  | [Mount] [Open] [Scan] [Eject]|
+| Archive       APFS  Mounted   |                               |
+|                              | Disk Doctor                   |
+|                              | [Run Read-Only Diagnosis]     |
+|                              | Status: Blocked               |
+|                              | - unsafe state detected       |
+|                              | - chkdsk recommended          |
+|                              | Repair Plan                   |
+|                              | [Run Guided Mac Repair]       |
+|                              |                               |
+|                              | Self-Test / Logs / Overview   |
++---------------------------------------------------------------+
+```
+
+## Quick Start
 
 ### Launch the app
 
@@ -42,103 +122,61 @@ MountGuard is a native macOS disk manager focused on one thing first: stable mou
 swift run --disable-sandbox mountguardctl list
 ```
 
+### Diagnose a disk
+
+```bash
+swift run --disable-sandbox mountguardctl doctor <diskIdentifier>
+```
+
+### Run a guided Mac-side repair
+
+```bash
+swift run --disable-sandbox mountguardctl doctor-repair <diskIdentifier>
+```
+
 ### Check what is blocking a disk
 
 ```bash
-swift run --disable-sandbox mountguardctl ps disk4s2
+swift run --disable-sandbox mountguardctl ps <diskIdentifier>
 ```
 
 ### Run the safe self-test
 
 ```bash
-swift run --disable-sandbox mountguardctl selftest disk4s2
-```
-
-### Eject only when you really mean it
-
-```bash
-swift run --disable-sandbox mountguardctl eject disk4s2
-```
-
-## Screenshots
-
-### Main Window
-
-![MountGuard main window](./assets/screenshots/main-window.svg)
-
-### Menu Bar Panel
-
-![MountGuard menu bar panel](./assets/screenshots/menu-bar.svg)
-
-### Self-Test Workflow
-
-![MountGuard self-test workflow](./assets/screenshots/self-test.svg)
-
-## How To Think About It
-
-- `Mount`: make an unmounted disk ready to use
-- `Open`: jump into the disk in Finder
-- `Scan Usage`: ask who is still holding the disk
-- `Run Self-Test`: verify the I/O path using MountGuard's own hidden workspace
-- `Safe Eject`: flush, unmount, and eject in a safer order
-
-If a volume is read-only, MountGuard respects that and skips write self-tests instead of pretending everything is fine.
-
-## Real Usage Stories
-
-### “I just plugged in a disk and want to start copying.”
-
-Open MountGuard, confirm the disk is mounted and writable, then open it in Finder and start copying in either direction.
-
-### “I just want to unplug safely.”
-
-Open MountGuard, pick the disk, run `Scan Usage`, and then `Safe Eject`.
-
-### “I am not sure whether the disk path is healthy.”
-
-Run the self-test. It creates files only inside `.mountguard-selftest`, validates read/write behavior, and cleans up after itself.
-
-### “I mainly live in Terminal.”
-
-Use:
-
-```bash
-swift run --disable-sandbox mountguardctl list
-swift run --disable-sandbox mountguardctl ps <diskIdentifier>
 swift run --disable-sandbox mountguardctl selftest <diskIdentifier>
+```
+
+### Eject safely
+
+```bash
 swift run --disable-sandbox mountguardctl eject <diskIdentifier>
 ```
 
-## Why It Feels Safe
+## Filesystem Strategy
 
-- No automatic formatting
-- No automatic `fsck`
-- No silent process killing
-- No hidden remount tricks
-- No write self-test on read-only volumes
-- No writes outside MountGuard-owned test workspace
+- `APFS`, `HFS+`, `exFAT`: stay on the default macOS path for stability and throughput
+- `NTFS`: mount safely first, diagnose before risky RW, then attempt enhanced RW only when the evidence says it is appropriate
+- multiple external disks: managed from the same main window and menu bar flow
 
-## Current Status
+## Current Release Focus
 
-- `swift test --disable-sandbox` passes
-- The current debug disk `/Volumes/Backup` is correctly identified as `NTFS` and `read-only`
-- Default mount / unmount flow works locally through `diskutil`
-- Local machine has `ntfs-3g` and macFUSE available for optional enhanced NTFS RW path
-- Real self-test on that disk is intentionally skipped instead of forcing unsafe writes
-- Busy-process scan has been switched to a filesystem-level strategy so large disks stay responsive
+- stable mounting and state refresh
+- clear writable vs read-only visibility
+- guided NTFS diagnosis and cautious Mac-side repair
+- safer eject path with usage scan
+- bilingual GUI foundation
+- build metadata in the app for traceability
 
-## Technical Details
+## Developer Notes
 
 - Native macOS stack: `SwiftUI + AppKit + DiskArbitration + diskutil`
-- Menu bar app + CLI with shared system services
-- Busy-process scan before eject
-- English-first GUI with Chinese toggle
+- Menu bar app and CLI share the same core services
+- `Disk Doctor` and `Enhanced RW Mount` now share the same safety gate
+- the repo intentionally avoids private planning files and local secrets
 
-## Later
+## Roadmap
 
-This phase stops here on purpose.
-
-Future ideas like verified sync, resumable copy, and backup workflows are tracked in [Advanced Capabilities](./docs/ADVANCED_CAPABILITIES.md) and [Next Phase](./docs/NEXT_PHASE.md).
+Future ideas like verified sync, resumable copy, and richer backup flows are tracked in [Advanced Capabilities](./docs/ADVANCED_CAPABILITIES.md) and [Next Phase](./docs/NEXT_PHASE.md).
 
 ## For Contributors
 

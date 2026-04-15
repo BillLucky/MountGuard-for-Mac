@@ -27,15 +27,24 @@ struct OperationLogEntry: Identifiable {
     let createdAt: Date
 }
 
+struct DoctorRepairConfirmation: Identifiable {
+    let id = UUID()
+    let volumeID: DiskVolume.ID
+    let title: String
+    let message: String
+}
+
 @MainActor
 final class DiskDashboardModel: ObservableObject {
     @Published private(set) var volumes: [DiskVolume] = []
     @Published private(set) var logs: [OperationLogEntry] = []
     @Published private(set) var usageByVolumeID: [DiskVolume.ID: [DiskProcessUsage]] = [:]
     @Published private(set) var ioTestReportsByVolumeID: [DiskVolume.ID: DiskIOTestReport] = [:]
+    @Published private(set) var doctorReportsByVolumeID: [DiskVolume.ID: DiskDoctorReport] = [:]
     @Published var selectedVolumeID: DiskVolume.ID?
     @Published var isLoading = false
     @Published var lastErrorMessage: String?
+    @Published var pendingDoctorRepairConfirmation: DoctorRepairConfirmation?
 
     var selectedVolume: DiskVolume? {
         volumes.first { $0.id == selectedVolumeID }
@@ -51,6 +60,7 @@ final class DiskDashboardModel: ObservableObject {
     private let inventoryService: DiskInventoryService
     private let commandService: DiskCommandService
     private let ioTestService: DiskIOTestService
+    private let doctorService: DiskDoctorService
     private let monitor: DiskArbitrationMonitor?
     private let logger = Logger(subsystem: "com.mountguard.local", category: "dashboard")
     private var hasStarted = false
@@ -60,11 +70,13 @@ final class DiskDashboardModel: ObservableObject {
         inventoryService: DiskInventoryService = DiskInventoryService(),
         commandService: DiskCommandService = DiskCommandService(),
         ioTestService: DiskIOTestService = DiskIOTestService(),
+        doctorService: DiskDoctorService = DiskDoctorService(),
         monitor: DiskArbitrationMonitor? = DiskArbitrationMonitor()
     ) {
         self.inventoryService = inventoryService
         self.commandService = commandService
         self.ioTestService = ioTestService
+        self.doctorService = doctorService
         self.monitor = monitor
         self.monitor?.onChange = { [weak self] in
             Task {
@@ -88,6 +100,14 @@ final class DiskDashboardModel: ObservableObject {
 
     func accessStrategyDescription(for volume: DiskVolume) -> String {
         commandService.accessStrategyDescription(for: volume)
+    }
+
+    func doctorReport(for volume: DiskVolume) -> DiskDoctorReport? {
+        doctorReportsByVolumeID[volume.id]
+    }
+
+    func shouldBlockEnhancedReadWrite(for volume: DiskVolume) -> Bool {
+        doctorReportsByVolumeID[volume.id]?.status == .blocked
     }
 
     func refresh(reason: String, logSuccess: Bool = true, attemptAutoMount: Bool = false) async {
@@ -257,6 +277,96 @@ final class DiskDashboardModel: ObservableObject {
         case .failed:
             lastErrorMessage = report.steps.last(where: { $0.status == .failed })?.detail ?? "磁盘自测失败"
             appendLog(.error, "磁盘自测失败：\(volume.displayName)")
+        }
+    }
+
+    func runDoctorDiagnosis(on volume: DiskVolume) async {
+        appendLog(.info, "开始只读诊断：\(volume.displayName)")
+
+        do {
+            let doctorService = self.doctorService
+            let report = try await Task.detached(priority: .userInitiated) {
+                try doctorService.diagnose(volume)
+            }.value
+
+            doctorReportsByVolumeID[volume.id] = report
+            switch report.status {
+            case .healthy:
+                appendLog(.success, "磁盘医生：\(volume.displayName) 未发现阻断项")
+            case .warning:
+                appendLog(.info, "磁盘医生：\(volume.displayName) 检测到需要注意的信号")
+            case .blocked:
+                lastErrorMessage = report.summary
+                appendLog(.error, "磁盘医生：\(volume.displayName) 检测到阻断读写的风险")
+            }
+        } catch {
+            lastErrorMessage = error.localizedDescription
+            appendLog(.error, "磁盘医生执行失败：\(volume.displayName) - \(error.localizedDescription)")
+        }
+    }
+
+    func requestDoctorRepair(on volume: DiskVolume) async {
+        if doctorReportsByVolumeID[volume.id] == nil {
+            await runDoctorDiagnosis(on: volume)
+        }
+
+        guard let report = doctorReportsByVolumeID[volume.id], let plan = report.repairPlan else {
+            lastErrorMessage = "当前诊断没有给出可执行的修复计划。"
+            appendLog(.info, "磁盘医生：\(volume.displayName) 当前没有可执行的修复计划")
+            return
+        }
+
+        guard plan.canRunOnMac else {
+            lastErrorMessage = plan.summary
+            appendLog(.info, "磁盘医生：\(volume.displayName) 当前只能给出人工修复路径")
+            return
+        }
+
+        pendingDoctorRepairConfirmation = DoctorRepairConfirmation(
+            volumeID: volume.id,
+            title: "确认执行 Mac 本地修复",
+            message: "MountGuard 将对 \(volume.displayName) 调用 ntfsfix 做一次谨慎修复，并在修复后重新诊断。这个过程会写入 NTFS 元数据，但不是完整的 Windows chkdsk。只有在你确认后才会继续。"
+        )
+    }
+
+    func dismissDoctorRepairConfirmation() {
+        pendingDoctorRepairConfirmation = nil
+    }
+
+    func confirmDoctorRepair() async {
+        guard let confirmation = pendingDoctorRepairConfirmation else {
+            return
+        }
+        pendingDoctorRepairConfirmation = nil
+
+        guard let volume = volumes.first(where: { $0.id == confirmation.volumeID }) else {
+            lastErrorMessage = "目标磁盘状态已经变化，请先刷新后再试。"
+            appendLog(.error, "磁盘医生修复失败：目标磁盘已不在当前列表中")
+            return
+        }
+
+        appendLog(.info, "开始 Mac 本地修复：\(volume.displayName)")
+        do {
+            let doctorService = self.doctorService
+            let report = try await Task.detached(priority: .userInitiated) {
+                try doctorService.repair(volume)
+            }.value
+
+            doctorReportsByVolumeID[volume.id] = report
+            await refresh(reason: "Mac 本地修复完成", logSuccess: false)
+
+            switch report.status {
+            case .healthy:
+                appendLog(.success, "磁盘医生修复完成：\(volume.displayName) 当前未发现阻断项")
+            case .warning:
+                appendLog(.info, "磁盘医生修复完成：\(volume.displayName) 已降级为提醒状态")
+            case .blocked:
+                lastErrorMessage = report.summary
+                appendLog(.error, "磁盘医生修复后仍存在阻断项：\(volume.displayName)")
+            }
+        } catch {
+            lastErrorMessage = error.localizedDescription
+            appendLog(.error, "磁盘医生修复失败：\(volume.displayName) - \(error.localizedDescription)")
         }
     }
 
